@@ -1,0 +1,1418 @@
+[
+  {
+    "name": "blpy_red_parry_01",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      242
+    ],
+    "bounds": [
+      195,
+      193,
+      317,
+      319
+    ]
+  },
+  {
+    "name": "blpy_red_parry_02",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      137,
+      134,
+      375,
+      379
+    ]
+  },
+  {
+    "name": "blpy_red_parry_03",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      249
+    ],
+    "bounds": [
+      101,
+      168,
+      411,
+      373
+    ]
+  },
+  {
+    "name": "blpy_red_parry_04",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      230
+    ],
+    "bounds": [
+      104,
+      184,
+      421,
+      371
+    ]
+  },
+  {
+    "name": "blpy_red_parry_05",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      129
+    ],
+    "bounds": [
+      185,
+      180,
+      353,
+      355
+    ]
+  },
+  {
+    "name": "esc메뉴ui",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      81,
+      0,
+      1380,
+      1064
+    ]
+  },
+  {
+    "name": "rappy_parry_01",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      242
+    ],
+    "bounds": [
+      195,
+      193,
+      317,
+      319
+    ]
+  },
+  {
+    "name": "rappy_parry_02",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      137,
+      134,
+      375,
+      379
+    ]
+  },
+  {
+    "name": "rappy_parry_03",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      249
+    ],
+    "bounds": [
+      101,
+      168,
+      411,
+      373
+    ]
+  },
+  {
+    "name": "rappy_parry_04",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      230
+    ],
+    "bounds": [
+      104,
+      184,
+      421,
+      371
+    ]
+  },
+  {
+    "name": "rappy_parry_05",
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      158
+    ],
+    "bounds": [
+      184,
+      178,
+      353,
+      355
+    ]
+  },
+  {
+    "name": "건사료",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      17,
+      1240,
+      1254
+    ]
+  },
+  {
+    "name": "게임시작화면",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "게임오버ui",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      41,
+      39,
+      1361,
+      1079
+    ]
+  },
+  {
+    "name": "래피",
+    "width": 1298,
+    "height": 1212,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      14,
+      1229,
+      1192
+    ]
+  },
+  {
+    "name": "래피상단점프전동작",
+    "width": 1427,
+    "height": 1102,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      33,
+      1375,
+      1098
+    ]
+  },
+  {
+    "name": "래피수둔시전상단점프시",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      9,
+      1240,
+      1254
+    ]
+  },
+  {
+    "name": "래피수둔시전우측점프시",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      0,
+      1204,
+      1254
+    ]
+  },
+  {
+    "name": "래피수둔시전좌측점프시",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      28,
+      1238,
+      1254
+    ]
+  },
+  {
+    "name": "래피우측점프전동작",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      7,
+      1399,
+      1111
+    ]
+  },
+  {
+    "name": "래피점프상단",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      23,
+      1391,
+      1095
+    ]
+  },
+  {
+    "name": "래피점프오른쪽",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      33,
+      71,
+      1369,
+      1111
+    ]
+  },
+  {
+    "name": "래피점프왼쪽",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      27,
+      1385,
+      1061
+    ]
+  },
+  {
+    "name": "래피좌측점프전동작",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      19,
+      1238,
+      1254
+    ]
+  },
+  {
+    "name": "래피헤엄우측1",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      25,
+      1522,
+      1008
+    ]
+  },
+  {
+    "name": "래피헤엄우측2",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      17,
+      42,
+      1510,
+      1000
+    ]
+  },
+  {
+    "name": "래피헤엄우측3",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      31,
+      79,
+      1518,
+      1024
+    ]
+  },
+  {
+    "name": "래피헤엄좌측1",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      35,
+      19,
+      1523,
+      1024
+    ]
+  },
+  {
+    "name": "래피헤엄좌측2",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      33,
+      1536,
+      967
+    ]
+  },
+  {
+    "name": "래피헤엄좌측3",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      42,
+      37,
+      1520,
+      1024
+    ]
+  },
+  {
+    "name": "배경1",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경2",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경3",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경3예시1",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경3예시2",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경3예시3",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경4",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경4에서배경5로",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경4예시1",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경4예시2",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경4예시3",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경5",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경5에서배경6으로",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경5예시1",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경5예시2",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경5예시3",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경6예시1",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경6예시2",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경6예시3",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "배경6예시4",
+    "width": 1448,
+    "height": 1086,
+    "mode": "RGB",
+    "alpha_range": null,
+    "bounds": null
+  },
+  {
+    "name": "블피",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      19,
+      1520,
+      1012
+    ]
+  },
+  {
+    "name": "블피상단점프전동작",
+    "width": 1427,
+    "height": 1102,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      89,
+      48,
+      1244,
+      1078
+    ]
+  },
+  {
+    "name": "블피수둔시전상단점프시",
+    "width": 800,
+    "height": 800,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      187,
+      85,
+      612,
+      563
+    ]
+  },
+  {
+    "name": "블피수둔시전우측점프시",
+    "width": 800,
+    "height": 800,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      104,
+      158,
+      695,
+      642
+    ]
+  },
+  {
+    "name": "블피수둔시전좌측점프시",
+    "width": 800,
+    "height": 800,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      103,
+      154,
+      696,
+      645
+    ]
+  },
+  {
+    "name": "블피오른쪽점프",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      23,
+      1361,
+      1063
+    ]
+  },
+  {
+    "name": "블피왼쪽점프",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      39,
+      21,
+      1395,
+      1111
+    ]
+  },
+  {
+    "name": "블피우측점프전동작",
+    "width": 1416,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      63,
+      1322,
+      1087
+    ]
+  },
+  {
+    "name": "블피우측헤엄1",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      15,
+      19,
+      1254,
+      1254
+    ]
+  },
+  {
+    "name": "블피우측헤엄2",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      21,
+      1524,
+      1024
+    ]
+  },
+  {
+    "name": "블피우측헤엄3",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      0,
+      1477,
+      1020
+    ]
+  },
+  {
+    "name": "블피점프상단",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      55,
+      9,
+      1367,
+      1065
+    ]
+  },
+  {
+    "name": "블피좌측점프전동작",
+    "width": 1415,
+    "height": 1111,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      19,
+      1371,
+      1094
+    ]
+  },
+  {
+    "name": "블피좌측헤엄1",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      19,
+      1239,
+      1254
+    ]
+  },
+  {
+    "name": "블피좌측헤엄2",
+    "width": 1536,
+    "height": 1024,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      15,
+      1514,
+      1024
+    ]
+  },
+  {
+    "name": "블피좌측헤엄3",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      19,
+      1243,
+      1250
+    ]
+  },
+  {
+    "name": "빨간물1",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      20,
+      147,
+      2042,
+      739
+    ]
+  },
+  {
+    "name": "빨간물1첨벙이펙트",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      126,
+      1192,
+      1213
+    ]
+  },
+  {
+    "name": "빨간물2",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      23,
+      54,
+      2035,
+      747
+    ]
+  },
+  {
+    "name": "빨간물2첨벙이펙트",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      41,
+      37,
+      1212,
+      1199
+    ]
+  },
+  {
+    "name": "빨간물3",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      22,
+      55,
+      2041,
+      763
+    ]
+  },
+  {
+    "name": "빨간물3첨벙이펙트",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      44,
+      21,
+      1220,
+      1180
+    ]
+  },
+  {
+    "name": "빨간물4",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      24,
+      56,
+      2032,
+      737
+    ]
+  },
+  {
+    "name": "빨간물4첨벙이펙트",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      81,
+      91,
+      1190,
+      1230
+    ]
+  },
+  {
+    "name": "빨간물5",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      17,
+      42,
+      2022,
+      743
+    ]
+  },
+  {
+    "name": "빨간물5첨벙이펙트",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      89,
+      193,
+      1202,
+      1134
+    ]
+  },
+  {
+    "name": "빨간물6",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      25,
+      2004,
+      714
+    ]
+  },
+  {
+    "name": "빨간물6첨벙이펙트",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      59,
+      150,
+      1190,
+      1125
+    ]
+  },
+  {
+    "name": "수둔",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      52,
+      1232,
+      1228
+    ]
+  },
+  {
+    "name": "수둔시전됨래피",
+    "width": 887,
+    "height": 1774,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      20,
+      867,
+      1758
+    ]
+  },
+  {
+    "name": "수둔시전됨블피",
+    "width": 887,
+    "height": 1774,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      55,
+      68,
+      861,
+      1742
+    ]
+  },
+  {
+    "name": "오리빨간불",
+    "width": 1278,
+    "height": 1230,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      0,
+      1264,
+      1230
+    ]
+  },
+  {
+    "name": "오리입1",
+    "width": 2078,
+    "height": 757,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      13,
+      2065,
+      739
+    ]
+  },
+  {
+    "name": "오리입2",
+    "width": 2078,
+    "height": 757,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      248,
+      19,
+      2006,
+      733
+    ]
+  },
+  {
+    "name": "오리입3",
+    "width": 2078,
+    "height": 757,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      357,
+      11,
+      1774,
+      738
+    ]
+  },
+  {
+    "name": "오리파란불",
+    "width": 1278,
+    "height": 1230,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      60,
+      23,
+      1226,
+      1210
+    ]
+  },
+  {
+    "name": "점프게이지",
+    "width": 2172,
+    "height": 724,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      69,
+      27,
+      2104,
+      658
+    ]
+  },
+  {
+    "name": "파란물1",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      18,
+      3,
+      2030,
+      713
+    ]
+  },
+  {
+    "name": "파란물1첨벙이펙트",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      0,
+      23,
+      1234,
+      1238
+    ]
+  },
+  {
+    "name": "파란물2",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      17,
+      31,
+      2036,
+      737
+    ]
+  },
+  {
+    "name": "파란물2첨벙이펙트",
+    "width": 2062,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      61,
+      9,
+      2040,
+      743
+    ]
+  },
+  {
+    "name": "파란물3",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      19,
+      69,
+      2042,
+      763
+    ]
+  },
+  {
+    "name": "파란물3첨벙이펙트",
+    "width": 2064,
+    "height": 762,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      254
+    ],
+    "bounds": [
+      0,
+      27,
+      2026,
+      762
+    ]
+  },
+  {
+    "name": "파란물4",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      18,
+      39,
+      2037,
+      731
+    ]
+  },
+  {
+    "name": "파란물4첨벙이펙트",
+    "width": 2064,
+    "height": 762,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      73,
+      96,
+      2006,
+      738
+    ]
+  },
+  {
+    "name": "파란물5",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      18,
+      78,
+      2026,
+      696
+    ]
+  },
+  {
+    "name": "파란물5첨벙이펙트",
+    "width": 2064,
+    "height": 762,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      39,
+      78,
+      2014,
+      699
+    ]
+  },
+  {
+    "name": "파란물6",
+    "width": 2060,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      12,
+      120,
+      2027,
+      749
+    ]
+  },
+  {
+    "name": "파란물6첨벙이펙트",
+    "width": 2062,
+    "height": 763,
+    "mode": "RGBA",
+    "alpha_range": [
+      0,
+      255
+    ],
+    "bounds": [
+      38,
+      64,
+      2028,
+      731
+    ]
+  }
+]

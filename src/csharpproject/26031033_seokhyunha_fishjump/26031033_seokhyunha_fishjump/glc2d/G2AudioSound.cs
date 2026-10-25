@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Author: 3dapi (https://github.com/3dapi)
 // -------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -80,7 +80,10 @@ class G2AudioSound : IG2Audio
 		_sourceVoice.FlushSourceBuffers();
 	}
 
-	public void Dispose()
+	public void SetVolume(float volume)=>_sourceVoice.SetVolume(Math.Clamp(volume,0,1));
+ public void Pause()=>_sourceVoice.Stop();
+ public void Resume()=>_sourceVoice.Start();
+ public void Dispose()
 	{
 		_sourceVoice.Dispose();
 		_wavData!.Count--;

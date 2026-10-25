@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Author: 3dapi (https://github.com/3dapi)
 // -------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -60,9 +60,14 @@ abstract class G2AppBase : IDisposable
 		{
 			Text = GameName,
 			StartPosition = FormStartPosition.CenterScreen,
-			ClientSize = ScreenSize
+			AutoScaleMode = AutoScaleMode.None,
+            ClientSize = ScreenSize
 		};
-		G2D2DContext? graphics = null;
+		// Fit the initial client area inside the current monitor, preserving the logical aspect ratio.
+        var workArea = Screen.FromControl(_mainForm).WorkingArea;
+        float initialScale = Math.Min(1f, Math.Min((workArea.Width - 40f) / ScreenSize.Width, (workArea.Height - 80f) / ScreenSize.Height));
+        _mainForm.ClientSize = new System.Drawing.Size((int)(ScreenSize.Width * initialScale), (int)(ScreenSize.Height * initialScale));
+        G2D2DContext? graphics = null;
 		G2AudioContext? audioContext = null;
 		G2InputContext? inputContext = null;
 		try
@@ -138,11 +143,18 @@ abstract class G2AppBase : IDisposable
 	private void Render2D()
 	{
 		ID2D1HwndRenderTarget renderTarget = _graphics.RenderTarget;
-		renderTarget.Transform = System.Numerics.Matrix3x2.CreateScale(ScreenScaleX, ScreenScaleY);
-		renderTarget.BeginDraw();
-		renderTarget.Clear(ClearColor);
-
-		Render();
+        float scale = Math.Min(ScreenScaleX, ScreenScaleY);
+        float offsetX = (_mainForm.ClientSize.Width - ScreenSize.Width * scale) / 2f;
+        float offsetY = (_mainForm.ClientSize.Height - ScreenSize.Height * scale) / 2f;
+        renderTarget.BeginDraw();
+        renderTarget.Transform = System.Numerics.Matrix3x2.Identity;
+        renderTarget.Clear(ClearColor);
+        renderTarget.Transform = System.Numerics.Matrix3x2.CreateScale(scale)
+            * System.Numerics.Matrix3x2.CreateTranslation(offsetX, offsetY);
+        // World sprites and oversized backgrounds must not draw into the letterbox bars.
+        renderTarget.PushAxisAlignedClip(new Rect(0, 0, ScreenSize.Width, ScreenSize.Height), AntialiasMode.Aliased);
+        try { Render(); }
+        finally { renderTarget.PopAxisAlignedClip(); }
 
 		renderTarget.EndDraw();
 	}

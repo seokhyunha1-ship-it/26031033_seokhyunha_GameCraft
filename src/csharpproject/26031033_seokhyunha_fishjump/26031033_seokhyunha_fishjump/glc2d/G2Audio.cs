@@ -1,4 +1,4 @@
-﻿// -------------------------------------------------------------------------------------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------------------------------------------------------------------------------------
 // Author: 3dapi (https://github.com/3dapi)
 // -------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -12,6 +12,9 @@ interface IG2Audio : IDisposable
 	void Play(bool isLooping = false);
 	bool IsPlaying();
 	void Stop();
+ void SetVolume(float volume);
+ void Pause();
+ void Resume();
 }
 
 class G2Audio : IDisposable
@@ -51,7 +54,10 @@ class G2Audio : IDisposable
 		_audio.Stop();
 	}
 
-	public void Dispose()
+	public void SetVolume(float volume)=>_audio.SetVolume(volume);
+ public void Pause()=>_audio.Pause();
+ public void Resume()=>_audio.Resume();
+ public void Dispose()
 	{
 		_audio.Dispose();
 	}

@@ -1,0 +1,53 @@
+{
+  "PixelsPerMeter": 10,
+  "ChargeRate": 50,
+  "JumpMetersPerPoint": 0.5,
+  "Gravity": 260,
+  "Buoyancy": 210,
+  "SwimSpeed": 95,
+  "RecoveryPerMeter": 6,
+  "WrongColorDrain": 14,
+  "DuckSpeed": 13,
+  "AttackCooldown": 4,
+  "FireSpeed": 180,
+  "ParryWindow": 0.2,
+  "ParryRadius": 30,
+  "ItemChance": 0.65,
+  "WaterItemChance": 0.4,
+  "UseProvidedEffects": false,
+  "FoodRecovery": 30,
+  "WaterDamageScale": 1,
+  "Seed": null,
+  "Player1Keys": [
+    "W",
+    "S",
+    "A",
+    "D",
+    "Space"
+  ],
+  "Player2Keys": [
+    "Up",
+    "Down",
+    "Left",
+    "Right",
+    "Enter"
+  ],
+  "StageHeights": [
+    0,
+    300,
+    700,
+    2200,
+    4000,
+    6000
+  ],
+  "StageBonuses": [
+    0,
+    100,
+    200,
+    300,
+    400,
+    500
+  ],
+  "BgmVolume": 0.2,
+  "SfxVolume": 0.65
+}
