@@ -61,8 +61,8 @@ sealed class BackgroundManager
 
     public void Draw(ResourceManager r)
     {
-        r.Draw(previous, -32, -48 + pan, 1024, 768, 1, true);
-        r.Draw(current, -32, -48 + pan, 1024, 768, blend, true);
+        r.Draw(previous, -32, -48 + pan, GameGlobal.ScreenSize.Width + 64, GameGlobal.ScreenSize.Height + 48, 1, true);
+        r.Draw(current, -32, -48 + pan, GameGlobal.ScreenSize.Width + 64, GameGlobal.ScreenSize.Height + 48, blend, true);
     }
 
 }

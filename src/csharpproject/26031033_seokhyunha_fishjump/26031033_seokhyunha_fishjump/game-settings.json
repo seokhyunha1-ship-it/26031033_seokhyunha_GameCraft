@@ -1,8 +1,8 @@
-﻿{
+{
   "PixelsPerMeter": 10,
   "ChargeRate": 50,
-  "JumpMetersPerPoint": 0.5,
-  "Gravity": 260,
+  "JumpMetersPerPoint": 0.8,
+  "Gravity": 300,
   "Buoyancy": 210,
   "SwimSpeed": 95,
   "RecoveryPerMeter": 6,
@@ -61,5 +61,22 @@
   "WaterExitTopMargin": 6,
   "WaterExitBottomMargin": 12,
   "JumpBiasFullSeconds": 1,
-  "JumpBiasMaxDegrees": 30
+  "JumpBiasMaxDegrees": 30,
+  "FireHold": 0.3,
+  "MouthOpenHoldSeconds": 0.2,
+  "FlapDirectionWindow": 0.3,
+  "FlapSpeedMultiplier": 2.0,
+  "FlapBurstDuration": 0.2,
+  "FireWindup": 0.5,
+  "MouthOpenSeconds": 0.35,
+  "WorldMargin": 40,
+  "PlatformHorizontalGap": 80,
+  "PlatformVerticalGapMin": 120,
+  "PlatformVerticalGapMax": 200,
+  "MouthClosedHoldSeconds": 0.2,
+  "MouthCloseSeconds": 0.35,
+  "WorldWidth": 2068,
+  "PlatformScatterY": 90,
+  "SidePlatformsPerSide": 1,
+  "FireRecovery": 0.4
 }

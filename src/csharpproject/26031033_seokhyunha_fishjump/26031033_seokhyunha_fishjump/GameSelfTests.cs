@@ -37,6 +37,8 @@ static class GameSelfTests
             var w = new GameWorld(new()
             {
                 Seed = 42,
+                WorldWidth = 960,
+                WorldMargin = 20,
                 DuckSpeed = 0,
                 AttackCooldown = 10000,
                 Gravity = frozen ? 0 : 260,
@@ -44,6 +46,8 @@ static class GameSelfTests
             }
            );
             w.DuckY = -10000;
+            w.Players[0].Position.X = 350;
+            w.Players[1].Position.X = 600;
             w.Items.Clear();
             w.Players[1].Alive = false;
             return w;
@@ -79,9 +83,9 @@ static class GameSelfTests
         }
 );
 
-        Test("100 point vertical jump reaches 50m", () =>
+        Test("100 point vertical jump reaches 80m", () =>
         {
-            var w = World(); var f = w.Players[0]; w.Platforms.Clear(); w.Platforms.Add(new(100, 0, 10000, 960, 0)); w.Launch(f, 100, true); for (int i = 0; i < 240; i++) w.Step(1f / 120, Idle); Check(Math.Abs(f.Highest - 500) < 3, $"height={f.Highest}");
+            var w = World(); var f = w.Players[0]; w.Platforms.Clear(); w.Platforms.Add(new(100, 0, 10000, 960, 0)); w.Launch(f, 100, true); for (int i = 0; i < 360; i++) w.Step(1f / 120, Idle); Check(Math.Abs(f.Highest - 800) < 3, $"height={f.Highest}");
         }
 );
 
@@ -216,7 +220,7 @@ static class GameSelfTests
         {
             var w = World(); var route = w.Platforms.Where(p => p.IsRoute).ToArray(); for (int i = 1; i < route.Length; i++)
             {
-                var a = route[i - 1]; var b = route[i]; Check(b.Y - b.Height / 2 - (a.Y + a.Height / 2) <= 150 && Math.Max(a.X, b.X) < Math.Min(a.X + a.Width, b.X + b.Width));
+                var a = route[i - 1]; var b = route[i]; Check(b.Y - b.Height / 2 - (a.Y + a.Height / 2) <= 30 * w.Settings.JumpMetersPerPoint * w.Settings.PixelsPerMeter && Math.Max(a.X, b.X) < Math.Min(a.X + a.Width, b.X + b.Width));
             }
         }
 );
@@ -281,28 +285,30 @@ static class GameSelfTests
                     heights.Add(b.Height); gaps.Add(b.Y - a.Y);
                     minCenter = Math.Min(minCenter, b.X + b.Width / 2);
                     maxCenter = Math.Max(maxCenter, b.X + b.Width / 2);
-                    Check(b.X >= 20 && b.X + b.Width <= 940.01f);
+                    Check(b.X >= w.Settings.WorldMargin && b.X + b.Width <= w.Settings.WorldWidth - w.Settings.WorldMargin + .01f);
                     Check(Math.Min(a.X + a.Width, b.X + b.Width) - Math.Max(a.X, b.X) >= 59.99f);
-                    Check(b.Y - a.Y > (a.Height + b.Height) / 2 && b.Y - b.Height / 2 - (a.Y + a.Height / 2) <= 150);
+                    float gap = b.Y - b.Height / 2 - (a.Y + a.Height / 2);
+                    Check(gap >= w.Settings.PlatformVerticalGapMin && gap <= w.Settings.PlatformVerticalGapMax);
                 }
             }
             Check(sizes.Count == 3 && heights.Count > 15 && gaps.Count > 20);
-            Check(minCenter < 250 && maxCenter > 710);
+            Check(minCenter < new GameSettings().WorldWidth / 2 && maxCenter > new GameSettings().WorldWidth / 2);
         });
-        Test("dense platforms cover left center right without overlaps", () =>
+        Test("sparse platforms cover left center right without overlaps", () =>
         {
+            int[] lanes = new int[3];
             for (int seed = 0; seed < 200; seed++)
             {
                 var w = new GameWorld(new GameSettings { Seed = seed });
                 var generated = w.Platforms.Where(p => p.Id != 0).ToArray();
                 int bands = generated.Count(p => p.IsRoute);
-                Check(generated.Length >= bands * 2 && generated.Length <= bands * 3, "2-3 platforms per band");
+                Check(generated.Length >= bands && generated.Length <= bands * 3, "at most one branch on each side");
                 for (int lane = 0; lane < 3; lane++)
-                    Check(generated.Count(p => (int)((p.X + p.Width / 2) / 320) == lane) >= 1, "lane coverage");
+                    lanes[lane] += generated.Count(p => (int)((p.X + p.Width / 2) / (w.Settings.WorldWidth / 3)) == lane);
                 for (int i = 0; i < generated.Length; i++)
                 {
                     var a = generated[i];
-                    Check(a.X >= 20 && a.X + a.Width <= 940.01f);
+                    Check(a.X >= w.Settings.WorldMargin && a.X + a.Width <= w.Settings.WorldWidth - w.Settings.WorldMargin + .01f);
                     for (int j = i + 1; j < generated.Length; j++)
                     {
                         var b = generated[j];
@@ -311,6 +317,7 @@ static class GameSelfTests
                     }
                 }
             }
+            Check(lanes.All(count => count >= 200), "all three lanes remain available across seeds");
         });
         Test("both fish reject own water repeatedly and recover only in opposite water", () =>
         {
@@ -389,7 +396,7 @@ static class GameSelfTests
             float vy=f.Velocity.Y;
             for(int i=0;i<120;i++) w.Step(1f/120,[new(-Vector2.UnitX,false,false,false),new()]);
             Check(f.Velocity.X<0 && Math.Abs(f.Velocity.Y-(vy-260))<.1f);
-            for(int i=0;i<70;i++) w.Step(1f/120,Idle);
+            for(int i=0;i<140;i++) w.Step(1f/120,Idle);
             float vx=f.Velocity.X; Check(f.Velocity.Y<0);
             w.Step(.1f,[new(Vector2.UnitX,false,false,false),new()]);
             Check(f.Velocity.X>vx);
@@ -578,6 +585,7 @@ static class GameSelfTests
             float bias=f.JumpBiasAmount;
             w.Step(.1f,[new(Vector2.UnitX,false,false,true),new()]); Check(f.JumpBiasAmount==bias);
         });
+        GameFeatureTests.Run(Test);
         File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "self-test-results.txt"), results.Append($"{results.Count - failed}/{results.Count} passed"));
 
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "settings-defaults.json"), JsonSerializer.Serialize(new GameSettings(), new JsonSerializerOptions

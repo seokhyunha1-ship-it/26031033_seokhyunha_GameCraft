@@ -1,9 +1,13 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 using System.Text.Json;
 
 
-record struct Control(Vector2 Direction, bool Press, bool Release, bool Held, int JumpBias = 0, bool ParryPress = false);
+record struct Control(Vector2 Direction, bool Press, bool Release, bool Held, int JumpBias = 0,
+    bool ParryPress = false, double InputTime = -1, double DirectionTime = -1);
+
+enum FlightOrigin { None, PaidJump, Parry }
+enum DuckState { Chasing, Windup, Holding, Recovering }
 
 sealed class FishPlayer(int id, float x)
 {
@@ -19,6 +23,26 @@ sealed class FishPlayer(int id, float x)
     public bool FallingOnly;
     public float Splash, JumpBiasAmount;
     public Vector2 SwimDirection;
+    public float LastPaidJumpCost;
+    public bool FlapUsed, FlapPending, JumpHeld;
+    public double FlapStarted, FlapDeadline, FlapDirectionTime;
+    public Vector2 FlapDirection;
+    public Vector2 FlapBoostVelocity;
+    public float FlapBoostRemaining;
+    public FlightOrigin FlightOrigin;
+    public string FlapMessage = "";
+    public float FlapMessageTime;
+
+    public void EndFlight()
+    {
+        FlightOrigin = FlightOrigin.None;
+        LastPaidJumpCost = 0;
+        FlapUsed = false;
+        FlapPending = false;
+        FlapDirection = Vector2.Zero;
+        FlapBoostVelocity = Vector2.Zero;
+        FlapBoostRemaining = 0;
+    }
     public bool UsesBasicSwimPose => Platform >= 0 && SwimDirection.Y != 0;
 
 }
@@ -27,6 +51,9 @@ sealed class WaterPlatform(int id, float x, float y, float w, int color)
 {
 
     public int Id = id, Color = color;
+    // 생성 비율은 입수로 바뀌는 현재 색과 분리해 기록한다.
+    public int SpawnColor { get; private set; } = color;
+    public void SetSpawnColor(int value) { SpawnColor = value; Color = value; }
     public bool IsRoute = true;
     public float X = x, Y = y, Width = w, Height = 95;
 
@@ -94,14 +121,14 @@ sealed class ScoreSystem
 
 }
 
-sealed class GameWorld
+sealed partial class GameWorld
 {
 
     public readonly GameSettings Settings;
     public readonly Random Random;
     public int Seed;
 
-    public FishPlayer[] Players = [new(0, 350), new(1, 600)];
+    public FishPlayer[] Players;
 
     public List<WaterPlatform> Platforms = [];
     public List<FireProjectile> Fires = [];
@@ -109,9 +136,16 @@ sealed class GameWorld
     public List<GameItem> Items = [];
 
     public ScoreSystem Score = new();
-    public float Time, DuckY = -220, Camera, AttackTimer;
+    public double Time;
+    public float DuckY = -220, Camera, AttackTimer;
+    public float CameraTop => Camera + Settings.ViewHeight * .75f;
+    public float CameraBottom => Camera - Settings.ViewHeight * .25f;
+    public DuckState DuckPhase { get; private set; }
+    public int DuckMouthFrame { get; private set; } = 3;
+    public int ShotsFired { get; private set; }
     public int Stage;
     int nextId;
+    int lastSpawnColor; // 시작 물은 빨강(0). 화면 밖으로 사라져도 생성 순서는 이어진다.
     readonly Random attackRandom;
 
     public Action<string>? Sound;
@@ -119,27 +153,21 @@ sealed class GameWorld
     public GameWorld(GameSettings s)
     {
         Settings = s;
+        s.Validate();
+        Players = [new(0, s.WorldWidth / 2 - 125), new(1, s.WorldWidth / 2 + 125)];
         Seed = s.Seed ?? System.Random.Shared.Next();
         Random = new(Seed);
         attackRandom = new(Seed ^ 1729);
-        Platforms.Add(new(nextId++, 0, 0, 960, 0) { Height = 180 });
+        Platforms.Add(new(nextId++, 0, 0, s.WorldWidth, 0) { Height = 180 });
         Generate();
     }
 
-    int layoutPattern, patternRemaining, patternStep, patternColor;
-
     void Generate()
     {
-        while (Platforms.Last(p => p.IsRoute).Y < Camera + 1000)
+        while (Platforms.Last(p => p.IsRoute).Y < CameraTop + 1000)
         {
+            int firstNewPlatform = Platforms.Count;
             var last = Platforms.Last(p => p.IsRoute);
-            if (patternRemaining-- <= 0)
-            {
-                layoutPattern = Random.Next(4); // left staircase, right staircase, zigzag, scattered
-                patternRemaining = Random.Next(3, 7);
-                patternStep = 0;
-                patternColor = Random.Next(2);
-            }
             int size = Random.Next(3);
             float width = size switch
             {
@@ -154,64 +182,99 @@ sealed class GameWorld
                 _ => Random.Next(210, 261)
             };
             // Keep at least 60px of shared horizontal space for a vertical jump route.
-            float minX = Math.Max(20, last.X + 60 - width);
-            float maxX = Math.Min(940 - width, last.X + last.Width - 60);
-            float choice = (float)Random.NextDouble();
-            float fraction = layoutPattern switch
-            {
-                0 => choice * .35f,
-                1 => .65f + choice * .35f,
-                2 => patternStep % 2 == 0 ? choice * .25f : .75f + choice * .25f,
-                _ => choice
-            };
+            float minX = Math.Max(Settings.WorldMargin, last.X + 60 - width);
+            float maxX = Math.Min(Settings.WorldWidth - Settings.WorldMargin - width, last.X + last.Width - 60);
+            if (last.Id == 0) { minX = Settings.WorldWidth / 2 - width; maxX = Settings.WorldWidth / 2; }
+            // 계단/지그재그 반복 패턴 대신 매번 독립적인 위치를 뽑는다.
+            float fraction = (float)Random.NextDouble();
             float x = minX + (maxX - minX) * fraction;
             // Leave a visible gap above the tallest water in the previous band.
-            float previousTop = Platforms.Where(p => p.Id >= last.Id).Max(p => p.Y + p.Height / 2);
-            int minGap = Math.Max(110, (int)Math.Ceiling(previousTop - last.Y + Math.Max(height / 2, 115) + 12));
-            float y = last.Y + Random.Next(minGap, minGap + 25);
-            int color = layoutPattern switch
-            {
-                0 or 1 => (patternColor + patternStep / 2) % 2,
-                2 => (patternColor + patternStep) % 2,
-                _ => Random.Next(2)
-            };
-            patternStep++;
+            float y = last.Y + (last.Height + height) / 2 +
+                Random.Next(Settings.PlatformVerticalGapMin, Settings.PlatformVerticalGapMax + 1);
+            int color = Random.Next(2);
             var platform = new WaterPlatform(nextId++, x, y, width, color) { Height = height };
             Platforms.Add(platform);
             if (Random.NextDouble() < Settings.ItemChance)
                 Items.Add(new() { Position = new(x + width / 2, y), Water = Random.NextDouble() < Settings.WaterItemChance });
             // Fill the unused sides of each band while keeping the main jump route intact.
-            // Wide spaces split into two slots, distributing choices across the screen.
-            AddSidePlatforms(20, x - 24, y, 1 - color, 940 - (x + width + 24) < 130);
-            AddSidePlatforms(x + width + 24, 940, y, 1 - color, x - 44 < 130);
-
+            float gap = Settings.PlatformHorizontalGap;
+            int sideCount = SideCount(x - gap - Settings.WorldMargin) +
+                SideCount(Settings.WorldWidth - Settings.WorldMargin - x - width - gap);
+            AddSidePlatforms(Settings.WorldMargin, x - gap, y, sideCount);
+            AddSidePlatforms(x + width + gap, Settings.WorldWidth - Settings.WorldMargin, y, sideCount);
+            AssignSpawnColors(firstNewPlatform);
         }
     }
 
-    void AddSidePlatforms(float left, float right, float y, int color, bool split)
+    void AssignSpawnColors(int firstNewPlatform)
+    {
+        // 화면 안에 중심점이 있는 물은 높이순 목록의 연속 구간이다.
+        // 높이순으로 두 색을 번갈아 배정하면 어떤 화면에서도 개수 차이가 1 이하이다.
+        // 2개 이상이면 30~70% 범위 안이며, 이미 등장한 물의 색은 다시 바꾸지 않는다.
+        foreach (var water in Platforms.Skip(firstNewPlatform).OrderBy(p => p.Y).ThenBy(p => p.Id))
+        {
+            lastSpawnColor = 1 - lastSpawnColor;
+            water.SetSpawnColor(lastSpawnColor);
+        }
+    }
+
+    int SideCount(float space)
+    {
+        if (space < 130) return 0;
+        float gap = Settings.PlatformHorizontalGap;
+        int preferred = (int)Math.Ceiling((space + gap) / (300 + gap));
+        // 간격을 넓혀도 물의 최소 폭130을 확보한다. 좁은 공간을 억지로 둘로 나누지 않는다.
+        int maximum = (int)Math.Floor((space + gap) / (130 + gap));
+        return Math.Min(Settings.SidePlatformsPerSide, Math.Max(1, Math.Min(preferred, maximum)));
+    }
+
+    void AddSidePlatforms(float left, float right, float y, int totalSideCount)
     {
         float available = right - left;
         if (available < 130) return;
-        int count = split && available >= 360 ? 2 : 1;
-        float slot = (available - (count - 1) * 24) / count;
+        int count = SideCount(available);
+        float routeHeight = Platforms.Last(p => p.IsRoute).Height;
         for (int i = 0; i < count; i++)
         {
-            float width = Random.Next(130, (int)Math.Min(300, slot) + 1);
-            float x = left + i * (slot + 24) + (float)Random.NextDouble() * (slot - width);
-            float sideY = y + Random.Next(-5, 6);
-            Platforms.Add(new(nextId++, x, sideY, width, (color + i) % 2)
+            // 고정 슬롯을 채우지 않는다. x/y/크기를 독립적으로 뽑고 충돌과 연결을 검사한다.
+            for (int attempt = 0; attempt < 100; attempt++)
             {
-                Height = Math.Min(Platforms.Last(p => p.IsRoute).Height, Random.Next(3) switch { 0 => Random.Next(80, 111), 1 => Random.Next(130, 171), _ => Random.Next(190, 221) }), IsRoute = false
-            });
-            // Extra routes should not multiply the original item supply.
-            if (Random.NextDouble() < Settings.ItemChance * .25f)
-                Items.Add(new() { Position = new(x + width / 2, sideY), Water = Random.NextDouble() < Settings.WaterItemChance });
+                float width = Random.Next(130, (int)Math.Min(300, available) + 1);
+                float x = left + (float)Random.NextDouble() * (available - width);
+                float sideY = y + ((float)Random.NextDouble() * 2 - 1) * Settings.PlatformScatterY;
+                var candidate = new WaterPlatform(nextId, x, sideY, width, Random.Next(2))
+                {
+                    Height = Random.Next((int)Math.Max(80, Math.Min(220, routeHeight - 40)),
+                        (int)Math.Min(220, routeHeight) + 1), IsRoute = false
+                };
+                if (Platforms.Any(p => !Separated(p, candidate))) continue;
+                if (!Platforms.Any(p => CanReachSide(p, candidate))) continue;
+                Platforms.Add(candidate);
+                nextId++;
+                if (Random.NextDouble() < Settings.ItemChance * .5f / Math.Max(1, totalSideCount))
+                    Items.Add(new() { Position = new(x + width / 2, sideY), Water = Random.NextDouble() < Settings.WaterItemChance });
+                break;
+            }
         }
+    }
+
+    bool Separated(WaterPlatform a, WaterPlatform b) =>
+        a.X + a.Width + Settings.PlatformHorizontalGap <= b.X ||
+        b.X + b.Width + Settings.PlatformHorizontalGap <= a.X ||
+        Math.Abs(a.Y - b.Y) >= (a.Height + b.Height) / 2 + 12;
+
+    // 색 조건은 별개다. 50포인트 점프의 상승 여유와 수평 조절 범위 안에 있는 물만 추가한다.
+    public bool CanReachSide(WaterPlatform from, WaterPlatform to)
+    {
+        float horizontalGap = Math.Max(0, Math.Max(from.X, to.X) - Math.Min(from.X + from.Width, to.X + to.Width));
+        float rise = to.Y - to.Height / 2 - from.Y;
+        return to.Y > from.Y && rise <= 45 * Settings.JumpMetersPerPoint * Settings.PixelsPerMeter &&
+            horizontalGap <= Settings.PlatformHorizontalGap + 20;
     }
 
     public void Launch(FishPlayer f, float points, bool consume)
     {
-        if (f.FallingOnly) return;
+        if (!f.Alive || f.FallingOnly) return;
         points = Math.Min(points, f.Gauge);
         if (consume && f.Gauge < 1) { f.Charging=false; f.Charge=0; return; }
         float distance = points * Settings.JumpMetersPerPoint * Settings.PixelsPerMeter;
@@ -223,6 +286,9 @@ sealed class GameWorld
         f.Jumping = true;
         f.Charging = false;
         f.Charge = 0;
+        f.EndFlight();
+        f.FlightOrigin = consume ? FlightOrigin.PaidJump : FlightOrigin.Parry;
+        if (consume) f.LastPaidJumpCost = points;
         if (consume) f.Gauge -= points;
         Sound?.Invoke("jump");
     }
@@ -230,28 +296,10 @@ sealed class GameWorld
     public void Step(float dt, Control[] controls)
     {
 
+        if (dt <= 0) return;
+        double stepStart = Time;
         Time += dt;
-        DuckY += Settings.DuckSpeed * dt;
-        AttackTimer += dt;
-
-        if (AttackTimer >= Settings.AttackCooldown)
-        {
-            AttackTimer -= Settings.AttackCooldown;
-            Sound?.Invoke("fire");
-            int color = attackRandom.Next(2), special = attackRandom.Next(7);
-            for (int i = 0; i < 7; i++)
-            {
-                float a = (-60 + i * 20) * MathF.PI / 180;
-                Fires.Add(new()
-                {
-                    Position = new(480, DuckY),
-                    Velocity = new(MathF.Sin(a) * Settings.FireSpeed, MathF.Cos(a) * Settings.FireSpeed),
-                    Color = i == special ? 1 - color : color,
-                    Special = i == special
-                }
-               );
-            }
-        }
+        UpdateDuck(stepStart);
 
         var contacts = new List<(FishPlayer fish, WaterPlatform platform, float time)>();
 
@@ -261,6 +309,10 @@ sealed class GameWorld
             var f = Players[i];
             if (!f.Alive) continue;
             var c = controls[i];
+            // 키를 누른 채 유지하거나 자동 반복해도 새 팔딱 입력으로 소비하지 않는다.
+            bool press = c.Press && !f.JumpHeld;
+            if (c.Release || !c.Held) f.JumpHeld = false; else if (c.Press) f.JumpHeld = true;
+            f.FlapMessageTime = Math.Max(0, f.FlapMessageTime - dt);
             f.Splash = Math.Max(0, f.Splash - dt);
             f.Cast = Math.Max(0, f.Cast - dt);
             f.Effect = Math.Max(0, f.Effect - dt);
@@ -269,8 +321,11 @@ sealed class GameWorld
 
             var water = !f.Jumping && !f.FallingOnly ? Platforms.FirstOrDefault(p => p.Id == f.Platform && p.ContainsResident(f.Position, Settings)) : null;
 
-            if (c.Press || c.ParryPress) f.Parry = Settings.ParryWindow;
-            if (c.Press)
+            if (press || c.ParryPress)
+                f.Parry = Math.Max(0, Settings.ParryWindow - (float)(Time - (c.InputTime >= 0 ? c.InputTime : stepStart)));
+            if (press && water == null) BeginFlap(f, c, stepStart);
+            CaptureFlapDirection(f, c, stepStart);
+            if (press && water != null)
             {
                 f.Charging = water != null;
                 f.Charge = 0;
@@ -315,14 +370,17 @@ sealed class GameWorld
                 if (water != null && !f.Jumping) f.Velocity.X *= MathF.Exp(-4 * dt);
                 else if (f.Jumping && !f.FallingOnly)
                 {
-                    f.Velocity.X = Math.Clamp(f.Velocity.X + c.Direction.X * Settings.AirSteeringAcceleration * dt,
-                        -Settings.AirSteeringMaxSpeed, Settings.AirSteeringMaxSpeed);
+                    bool bursting = f.FlapBoostRemaining > 0;
+                    DecayFlapBoost(f, dt);
+                    // 짧은 추가 속도를 다음 틱의 공중 속도 제한으로 즉시 잘라내지 않는다.
+                    float limit = bursting ? Math.Max(Settings.AirSteeringMaxSpeed, Math.Abs(f.Velocity.X)) : Settings.AirSteeringMaxSpeed;
+                    f.Velocity.X = Math.Clamp(f.Velocity.X + c.Direction.X * Settings.AirSteeringAcceleration * dt, -limit, limit);
                 }
             }
 
             var previousPosition = f.Position;
             f.Position += f.Velocity * dt;
-            f.Position.X = Math.Clamp(f.Position.X, 20, 940);
+            f.Position.X = Math.Clamp(f.Position.X, Settings.WorldMargin, Settings.WorldWidth - Settings.WorldMargin);
 
             float jumpDistance = f.Jumping ? Vector2.Distance(previousPosition, f.Position) : 0;
             if(swim){float gain=Vector2.Distance(previousPosition,f.Position)/Settings.PixelsPerMeter*Settings.RecoveryPerMeter;f.Gauge=Math.Clamp(f.Gauge+(water!.Color==f.Id?gain:-Settings.WrongColorDrain*dt),0,100);}
@@ -360,6 +418,7 @@ sealed class GameWorld
                 {
                     fire.Done = true;
                     f.Parry = 0;
+                    f.FlapPending = false;
                     f.Charging = false;
                     f.Charge = 0;
                     if (fire.Color != f.Id)
@@ -381,6 +440,7 @@ sealed class GameWorld
                 else if (d < 19)
                 {
                     fire.Done = true;
+                    f.FlapPending = false;
                     f.Gauge = Math.Max(0, f.Gauge - 20);
                     Sound?.Invoke("hit");
                 }
@@ -417,6 +477,7 @@ sealed class GameWorld
             {
                 f.Alive = false;
                 f.Charging = false;
+                f.EndFlight();
             }
 
         }
@@ -435,6 +496,8 @@ sealed class GameWorld
                 for (int k = j; k < end; k++)
                 {
                     var fish = ordered[k].fish;
+                    if (!fish.Alive) continue;
+                    fish.EndFlight();
                     fish.Charging = false;
                     fish.Charge = 0;
                     if (fish.Id == old)
@@ -463,6 +526,12 @@ sealed class GameWorld
             }
         }
 
+        // 입수/사망/패링이 확정된 뒤에만 팔딱을 실행하여 한 입력의 중복 결과를 막는다.
+        foreach (var fish in Players)
+        {
+            if (fish.Position.Y <= DuckY + 15) { fish.Alive = false; fish.EndFlight(); }
+            ResolveFlap(fish);
+        }
         foreach (var f in Fires) f.Position += f.Velocity * dt;
 
         foreach (var w in Waters)
@@ -475,7 +544,8 @@ sealed class GameWorld
             }
         }
 
-        Camera = Math.Max(Camera, Math.Max(DuckY + 160, Players.Where(f => f.Alive).Select(f => f.Position.Y - 300).DefaultIfEmpty(Camera).Max()));
+        Camera = Math.Max(Camera, Math.Max(DuckY + Settings.ViewHeight * (2f / 9f),
+            Players.Where(f => f.Alive).Select(f => f.Position.Y - Settings.ViewHeight * (5f / 12f)).DefaultIfEmpty(Camera).Max()));
 
         float highest = Players.Max(f => f.Highest);
         Stage = Array.FindLastIndex(Settings.StageHeights, h => highest >= h);
@@ -483,10 +553,11 @@ sealed class GameWorld
         Score.Award(Stage, Settings);
 
         Generate();
-        Platforms.RemoveAll(p => p.Y < Camera - 650);
-        Fires.RemoveAll(p => p.Done || p.Position.Y > Camera + 1100 || p.Position.Y < Camera - 650 || p.Position.X < -100 || p.Position.X > 1060);
-        Waters.RemoveAll(p => p.Done || p.Position.Y < Camera - 800);
-        Items.RemoveAll(p => p.Done || p.Position.Y < Camera - 650);
+        Platforms.RemoveAll(p => p.Y + p.Height / 2 < CameraBottom - 650 &&
+            !Players.Any(f => f.Alive && (f.Platform == p.Id || p.ContainsResident(f.Position, Settings))));
+        Fires.RemoveAll(p => p.Done || p.Position.Y > CameraTop + 1000 || p.Position.Y < CameraBottom - 650 || p.Position.X < -100 || p.Position.X > Settings.WorldWidth + 100);
+        Waters.RemoveAll(p => p.Done || p.Position.Y < Math.Min(CameraBottom - 800, DuckY - 10));
+        Items.RemoveAll(p => p.Done || p.Position.Y < CameraBottom - 650);
 
     }
 

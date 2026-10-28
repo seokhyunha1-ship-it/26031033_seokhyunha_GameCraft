@@ -25,14 +25,14 @@ sealed class GameSettings
         get;
         set;
     }
- = .5f;
+ = .8f;
 
     public float Gravity
     {
         get;
         set;
     }
- = 260;
+ = 300;
 
     public float Buoyancy
     {
@@ -191,10 +191,52 @@ sealed class GameSettings
     public float JumpBiasMaxDegrees { get; set; } = 30f;
     public string[] ParryKeys { get; set; } = ["Space", "Enter"];
 
+    // 창과 표시할 세계 범위를 줄여도 플랫폼 크기와 점프의 물리 단위는 유지한다.
+    public float WorldWidth { get; set; } = 2068;
+    public float WorldMargin { get; set; } = 40;
+    public float PlatformHorizontalGap { get; set; } = 80;
+    public int PlatformVerticalGapMin { get; set; } = 120;
+    public int PlatformVerticalGapMax { get; set; } = 200;
+    public float PlatformScatterY { get; set; } = 90;
+    public int SidePlatformsPerSide { get; set; } = 1;
+    // 창의 실제 종횡비를 사용해 세로로 늘어난 영역에도 같은 배율의 세계를 표시한다.
+    public float ViewHeight => WorldWidth * GameGlobal.ScreenSize.Height / GameGlobal.ScreenSize.Width;
+    public float FlapDirectionWindow { get; set; } = .30f;
+    public float FlapSpeedMultiplier { get; set; } = 2f;
+    public float FlapBurstDuration { get; set; } = .20f;
+    public float FireWindup { get; set; } = .50f;
+    public float FireHold { get; set; } = .30f;
+    public float FireRecovery { get; set; } = .40f;
+    public float MouthOpenSeconds { get; set; } = .35f;
+    public float MouthOpenHoldSeconds { get; set; } = .20f;
+    public float MouthCloseSeconds { get; set; } = .35f;
+    public float MouthClosedHoldSeconds { get; set; } = .20f;
+
+    public void Validate()
+    {
+        float[] positive = [WorldWidth, WorldMargin, PlatformHorizontalGap, PixelsPerMeter, ChargeRate, JumpMetersPerPoint,
+            FlapDirectionWindow, FlapSpeedMultiplier, FlapBurstDuration, ParryWindow, AttackCooldown, FireWindup, FireHold, FireRecovery,
+            MouthOpenSeconds, MouthOpenHoldSeconds, MouthCloseSeconds, MouthClosedHoldSeconds];
+        if (positive.Any(v => !float.IsFinite(v) || v <= 0) || WorldWidth < 800 ||
+            WorldWidth - 2 * WorldMargin < 600 || WorldMargin < 20 ||
+            !float.IsFinite(Gravity) || Gravity < 0 || PlatformVerticalGapMin < 1 ||
+            !float.IsFinite(PlatformScatterY) || PlatformScatterY < 0 || PlatformScatterY > PlatformVerticalGapMin - 12 ||
+            // 최소 물 높이 80을 포함한 다음 생성 묶음과 중심 높이 순서가 뒤섞이지 않게 한다.
+            PlatformScatterY * 2 >= PlatformVerticalGapMin + 80 ||
+            SidePlatformsPerSide < 0 || SidePlatformsPerSide > 10 ||
+            FlapSpeedMultiplier < 1 || FlapSpeedMultiplier > 4 || FlapBurstDuration > 1 ||
+            PlatformVerticalGapMax < PlatformVerticalGapMin || PlatformVerticalGapMax == int.MaxValue ||
+            AttackCooldown <= FireWindup + FireHold + FireRecovery || FlapDirectionWindow < ParryWindow)
+            throw new InvalidDataException("맵 폭, 물리 상수 또는 팔딱/오리 시간 설정이 올바르지 않습니다.");
+    }
+
     public static GameSettings Load()
     {
         var p = Path.Combine(AppContext.BaseDirectory, "game-settings.json");
-        return File.Exists(p) ? JsonSerializer.Deserialize<GameSettings>(File.ReadAllText(p))! : new();
+        var settings = File.Exists(p) ? JsonSerializer.Deserialize<GameSettings>(File.ReadAllText(p))
+            ?? throw new InvalidDataException("설정 파일이 비어 있습니다.") : new();
+        settings.Validate();
+        return settings;
     }
 
 }

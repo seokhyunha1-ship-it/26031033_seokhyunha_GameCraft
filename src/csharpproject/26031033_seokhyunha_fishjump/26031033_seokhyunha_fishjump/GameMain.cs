@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 using Vortice.Mathematics;
 
@@ -28,7 +28,8 @@ class GameMain : G2AppBase
     }
 
     State state = State.Title, returnState;
-    float ready, accumulator;
+    float ready;
+    double accumulator;
     int menu, record;
     string recordPath = "";
 
@@ -39,6 +40,11 @@ class GameMain : G2AppBase
     Keys[][] keys = [];
     bool[] pendingPress = new bool[2], pendingRelease = new bool[2];
     Vector2[] directions = new Vector2[2];
+    Vector2[] appliedDirections = new Vector2[2];
+    double[] inputTimes = new double[2], directionTimes = new double[2];
+    const float UiWidth = 1280;
+    float UiScale => ScreenSize.Width / UiWidth;
+    float UiHeight => ScreenSize.Height / UiScale;
 
     protected override void Initialize()
     {
@@ -79,6 +85,20 @@ class GameMain : G2AppBase
         Array.Clear(pendingPress);
         Array.Clear(pendingRelease);
         menu = 0;
+        ClearInput();
+    }
+
+    void ClearInput()
+    {
+        Input.Reset();
+        Array.Clear(pendingPress);
+        Array.Clear(pendingRelease);
+        Array.Clear(pendingParry);
+        Array.Clear(directions);
+        Array.Clear(appliedDirections);
+        Array.Clear(inputTimes);
+        Array.Clear(directionTimes);
+        foreach (var fish in world.Players) fish.JumpHeld = false;
     }
 
     bool Held(Keys k) => Input.IsKeyDown(k) || Input.IsKeyPress(k);
@@ -94,15 +114,17 @@ class GameMain : G2AppBase
     bool MouseInside(float x, float y, float width, float height)
     {
         var m = Input.MousePosition;
-        return m.X >= x && m.X < x + width && m.Y >= y && m.Y < y + height;
+        float mx = m.X / UiScale, my = m.Y / UiScale;
+        return mx >= 0 && my >= 0 && mx < UiWidth && my < UiHeight &&
+            mx >= x && mx < x + width && my >= y && my < y + height;
     }
 
     int HoverMenu()
     {
         for (int i = 0; i < 4; i++)
         {
-            float y = state == State.Paused ? 260 + i * 89 : i == 3 ? 650 : 380 + i * 76;
-            if (MouseInside(320, y, 330, state == State.Paused ? 70 : 60)) return i;
+            float y = 290 + i * 75;
+            if (MouseInside(UiWidth / 2 - 180, y, 360, 60)) return i;
         }
         return -1;
     }
@@ -137,7 +159,7 @@ class GameMain : G2AppBase
             if (ready <= 0)
             {
                 state = State.Playing;
-                Input.Reset();
+                ClearInput();
             }
             return;
         }
@@ -145,7 +167,7 @@ class GameMain : G2AppBase
         if (state == State.Results)
         {
             if (Input.IsKeyDown(Keys.Escape) || Input.IsKeyDown(Keys.Enter) ||
-                (Input.IsButtonDown(MouseButtons.Left) && MouseInside(290, 450, 380, 65))) state = returnState;
+                (Input.IsButtonDown(MouseButtons.Left) && MouseInside(UiWidth / 2 - 190, 450, 380, 65))) state = returnState;
             return;
         }
 
@@ -161,14 +183,13 @@ class GameMain : G2AppBase
                     p.Charging = false;
                     p.Charge = 0;
                 }
+                ClearInput();
             }
             else if (state == State.Paused)
             {
                 state = State.Playing;
                 audio.Pause(false);
-                Input.Reset();
-                Array.Clear(pendingPress);
-                Array.Clear(pendingRelease);
+                ClearInput();
             }
             audio.Play("menuclick");
             return;
@@ -198,7 +219,7 @@ class GameMain : G2AppBase
                     {
                         state = State.Playing;
                         audio.Pause(false);
-                        Input.Reset();
+                        ClearInput();
                     }
                     if (menu == 1)
                     {
@@ -236,11 +257,15 @@ class GameMain : G2AppBase
             return;
         }
 
+        double sampleTime = world.Time + accumulator + dt;
         for (int i = 0; i < 2; i++)
         {
+            if (Input.IsKeyDown(keys[i][4]) || Input.IsKeyUp(keys[i][4]) || Input.IsKeyDown(parryKeys[i])) inputTimes[i] = sampleTime;
             pendingPress[i] |= Input.IsKeyDown(keys[i][4]);
             pendingRelease[i] |= Input.IsKeyUp(keys[i][4]);
-            directions[i] = ReadDirection(i);
+            var direction = ReadDirection(i);
+            if (direction != directions[i]) directionTimes[i] = sampleTime;
+            directions[i] = direction;
             pendingParry[i] |= Input.IsKeyDown(parryKeys[i]);
             jumpBias[i] = Held(keys[i][0]) ? (Held(keys[i][3]) ? 1 : 0) - (Held(keys[i][2]) ? 1 : 0) : 0;
         }
@@ -249,11 +274,16 @@ class GameMain : G2AppBase
         while (accumulator >= 1f / 120)
         {
             Control[] c = new Control[2];
-            for (int i = 0; i < 2; i++) c[i] = new(directions[i], pendingPress[i], pendingRelease[i], Held(keys[i][4]), jumpBias[i], pendingParry[i]);
+            for (int i = 0; i < 2; i++)
+            {
+                bool readyInput = inputTimes[i] <= world.Time + 1f / 120 + 1e-7;
+                bool readyDirection = directionTimes[i] <= world.Time + 1f / 120 + 1e-7;
+                if (readyDirection) appliedDirections[i] = directions[i];
+                c[i] = new(appliedDirections[i], readyInput && pendingPress[i], readyInput && pendingRelease[i],
+                    Held(keys[i][4]), jumpBias[i], readyInput && pendingParry[i], inputTimes[i], directionTimes[i]);
+                if (readyInput) { pendingPress[i] = false; pendingRelease[i] = false; pendingParry[i] = false; }
+            }
             world.Step(1f / 120, c);
-            Array.Clear(pendingParry);
-            Array.Clear(pendingPress);
-            Array.Clear(pendingRelease);
             accumulator -= 1f / 120;
         }
 
@@ -280,7 +310,11 @@ class GameMain : G2AppBase
 
     }
 
-    float Y(float y) => 540 - (y - world.Camera);
+    float WorldScale => ScreenSize.Width / settings.WorldWidth;
+    float Y(float y) => (world.CameraTop - y) * WorldScale;
+
+    void DrawWorld(string name, float x, float y, float width, float height, float opacity = 1, bool stretch = false)
+        => resources.Draw(name, x * WorldScale, Y(y), width * WorldScale, height * WorldScale, opacity, stretch: stretch);
 
     void Text(string s, float x, float y, float w = 900) => font.DrawText(s, new Rect(x, y, w, 100), new Color4(1, 1, 1, 1));
 
@@ -317,94 +351,91 @@ class GameMain : G2AppBase
 
     protected override void Render()
     {
-
         background.Draw(resources);
+        if (state != State.Title)
+        {
+            foreach (var p in world.Platforms)
+            {
+                if (p.Y + p.Height / 2 < world.CameraBottom || p.Y - p.Height / 2 > world.CameraTop) continue;
+                DrawWorld((p.Color == 0 ? "빨간물" : "파란물") + (world.Stage + 1),
+                    p.X, p.Y + p.Height / 2, p.Width, p.Height, stretch: true);
+            }
+            foreach (var item in world.Items)
+                DrawWorld(item.Water ? "수둔" : "건사료", item.Position.X - 18, item.Position.Y + 18, 36, 36);
+            foreach (var fire in world.Fires)
+            {
+                DrawWorld(fire.Color == 0 ? "오리빨간불" : "오리파란불", fire.Position.X - 14, fire.Position.Y + 14, 28, 28);
+                if (fire.Special) Text("+", fire.Position.X * WorldScale - 7, Y(fire.Position.Y) - 24, 30);
+            }
+            foreach (var water in world.Waters)
+                DrawWorld(water.Owner == 0 ? "수둔시전됨래피" : "수둔시전됨블피",
+                    water.Position.X - 18, water.Position.Y + 35, 36, 70);
+            foreach (var fish in world.Players.Where(f => f.Alive))
+            {
+                float x = fish.Position.X * WorldScale, y = Y(fish.Position.Y);
+                if (fish.Splash > 0) DrawWorld((fish.Id == 0 ? "빨간물" : "파란물") + (world.Stage + 1) + "첨벙이펙트",
+                    fish.Position.X - 65, fish.Position.Y + 45, 130, 90, fish.Splash / .35f);
+                DrawWorld(FishImage(fish), fish.Position.X - 40, fish.Position.Y + 30, 80, 60);
+                Box(x - 25, y - 26, 50, 6, new Color4(0, 0, 0, .9f));
+                Box(x - 25, y - 26, 50 * fish.Gauge / 100, 6,
+                    fish.Id == 0 ? new(1, .3f, .4f, 1) : new(.2f, .7f, 1, 1));
+                if (fish.Charging) Box(x - 25, y - 18, 50 * fish.Charge / 100, 3, new(1, 1, .3f, 1));
+                if (fish.Effect > 0) DrawWorld((fish.Id == 0 ? "rappy_parry_" : "blpy_red_parry_") +
+                    Math.Clamp(1 + (int)((.4f - fish.Effect) / .08f), 1, 5).ToString("00"),
+                    fish.Position.X - 60, fish.Position.Y + 60, 120, 120);
+            }
+            DrawWorld("오리입" + world.DuckMouthFrame, 0, world.DuckY + 5, settings.WorldWidth, 500, stretch: true);
+            float danger = Y(world.DuckY + 15);
+            if (danger >= 0 && danger <= ScreenSize.Height)
+                Box(0, danger, ScreenSize.Width, 2, new Color4(1, .25f, .1f, .6f));
+        }
 
+        // UI는 세계 배율을 사용하지 않는다. 창 레터박스 변환은 G2AppBase가 담당한다.
+        var originalTransform = RenderTarget.Transform;
+        RenderTarget.Transform = Matrix3x2.CreateScale(UiScale) * originalTransform;
         if (state == State.Title)
         {
-            resources.Draw("게임시작화면", 0, 0, 960, 720);
-            Box(70, 470, 820, 220, new Color4(0, .04f, .12f, .85f));
-            Text("JUMPING FISH  ·  PRESS ANY BUTTON", 220, 485);
-            Text("래피: WASD 헤엄 / Space 충전·떼면 점프", 140, 530);
-            Text("블피: 방향키 헤엄 / ] 충전·떼면 점프", 140, 565);
-            Text("충전 중 W+A/D 또는 ↑+←/→: 누른 시간만큼 편향", 120, 605);
-            Text("점프 중 좌우 조절 · Space/Enter 패링 · ESC 메뉴", 240, 645);
-            return;
+            resources.Draw("게임시작화면", 0, 0, UiWidth, UiHeight, cover: true);
+            Box(100, 440, UiWidth - 200, 240, new Color4(0, .04f, .12f, .9f));
+            Text("JUMPING FISH · PRESS ANY BUTTON", 380, 455);
+            Text("래피: WASD / Space 충전·떼면 점프    블피: 방향키 / ] 충전·떼면 점프", 160, 500, 1050);
+            Text("공중에서 점프키 한 번 더 + 방향: 팔딱 (일반 점프 비용의 절반, 1회)", 160, 540, 1050);
+            Text("방향 입력 0.30초 · 패링 0.20초 우선 · Space/Enter 패링 · ESC 메뉴", 160, 580, 1050);
+            Text("충전 중 위+좌우로 편향 · 비행 중 좌우 조절 · 넓은 물길을 함께 탐색하세요", 160, 620, 1050);
         }
-
-        foreach (var p in world.Platforms)
+        else
         {
-            float sy = Y(p.Y);
-            if (sy < -150 || sy > 850) continue;
-            resources.Draw((p.Color == 0 ? "빨간물" : "파란물") + (world.Stage + 1), p.X, sy - p.Height / 2, p.Width, p.Height, stretch: true);
-        }
-
-        foreach (var it in world.Items) resources.Draw(it.Water ? "수둔" : "건사료", it.Position.X - 18, Y(it.Position.Y) - 18, 36, 36);
-
-        foreach (var f in world.Fires)
-        {
-            resources.Draw(f.Color == 0 ? "오리빨간불" : "오리파란불", f.Position.X - 14, Y(f.Position.Y) - 14, 28, 28);
-            if (f.Special) Text("+", f.Position.X - 8, Y(f.Position.Y) - 36, 30);
-        }
-
-        foreach (var w in world.Waters) resources.Draw(w.Owner == 0 ? "수둔시전됨래피" : "수둔시전됨블피", w.Position.X - 18, Y(w.Position.Y) - 35, 36, 70);
-
-        foreach (var f in world.Players.Where(p => p.Alive))
-        {
-            float sy = Y(f.Position.Y);
-            if (f.Splash > 0) resources.Draw((f.Id == 0 ? "빨간물" : "파란물") + (world.Stage + 1) + "첨벙이펙트", f.Position.X - 65, sy - 45, 130, 90, f.Splash / .35f);
-            resources.Draw(FishImage(f), f.Position.X - 40, sy - 30, 80, 60);
-            resources.Draw("점프게이지", f.Position.X - 40, sy - 55, 80, 20);
-            Box(f.Position.X - 35, sy - 48, 70, 7, new Color4(0, 0, 0, .8f));
-            Box(f.Position.X - 35, sy - 48, 70 * f.Gauge / 100, 7, f.Id == 0 ? new(1, .3f, .4f, 1) : new(.2f, .7f, 1, 1));
-            if (f.Charging) Box(f.Position.X - 35, sy - 39, 70 * f.Charge / 100, 4, new(1, 1, .3f, 1));
-            if (f.Effect > 0) resources.Draw((f.Id == 0 ? "rappy_parry_" : "blpy_red_parry_") + Math.Clamp(1 + (int)((.4f - f.Effect) / .08f), 1, 5).ToString("00"), f.Position.X - 60, sy - 60, 120, 120);
-        }
-
-        resources.Draw("오리입" + (1 + (int)(world.Time * 2) % 3), 0, Y(world.DuckY) - 5, 960, 330);
-
-        Box(0, 0, 960, 65, new Color4(0, 0, .08f, .75f));
-        Text($"점수 {world.Score.Total(world.Players, settings)}   최고 {record}   구간 {world.Stage + 1}", 15, 8);
-        Text($"래피 {world.Players[0].Highest / 10:F1}m   블피 {world.Players[1].Highest / 10:F1}m   Seed {world.Seed}", 15, 35);
-
-        if (state == State.Ready) Text("준비! Space / ]를 누르고 있다가 떼면 점프", 220, 300);
-
-        if (state == State.Paused || state == State.GameOver || state == State.Results)
-        {
-
-            Box(0, 0, 960, 720, new Color4(0, 0, 0, .55f));
-
-            if (state == State.Paused)
+            // 상단 물의 색을 가리지 않도록 패널 없이 점수 숫자와 얇은 글자 그림자만 그린다.
+            string score = world.Score.Total(world.Players, settings).ToString();
+            font.DrawText(score, new Rect(21, 9, 300, 50), new Color4(0, 0, 0, .7f));
+            Text(score, 20, 8, 300);
+            if (state == State.Ready) Text("준비! Space / ]를 누르고 있다가 떼면 점프", UiWidth / 2 - 240, 300, 600);
+            if (state == State.Paused || state == State.GameOver || state == State.Results)
             {
-                resources.Draw("esc메뉴ui", 0, -15, 960, 720);
-                Text("▶", 290, 270 + menu * 89, 60);
+                Box(0, 0, UiWidth, UiHeight, new Color4(0, 0, 0, .65f));
+                Box(UiWidth / 2 - 310, 150, 620, 480, new Color4(.01f, .04f, .12f, .96f));
+                if (state == State.Results)
+                {
+                    Text("기록 상세", UiWidth / 2 - 60, 185, 400);
+                    Text($"합계 {world.Score.Total(world.Players, settings)} · 최고 기록 {record}", UiWidth / 2 - 240, 250, 550);
+                    Text($"래피 {world.Players[0].Highest / settings.PixelsPerMeter:0.0}m / 블피 {world.Players[1].Highest / settings.PixelsPerMeter:0.0}m", UiWidth / 2 - 240, 310, 550);
+                    Text($"공격 {world.Score.Damage * 5:0}점 / 구간 보너스 {world.Score.Bonus}점", UiWidth / 2 - 240, 370, 550);
+                    Text("돌아가기 (클릭 / Enter / ESC)", UiWidth / 2 - 180, 460, 450);
+                }
+                else
+                {
+                    Text(state == State.Paused ? "일시정지" : "GAME OVER", UiWidth / 2 - 80, 185, 400);
+                    Text($"점수 {world.Score.Total(world.Players, settings)} · 최고 {record}", UiWidth / 2 - 180, 235, 500);
+                    string[] options = state == State.Paused ? ["계속하기", "재시작", "기록 상세", "종료"] : ["재시작", "기록 상세", "타이틀", "종료"];
+                    for (int i = 0; i < options.Length; i++)
+                    {
+                        if (i == menu) Box(UiWidth / 2 - 180, 290 + i * 75, 360, 60, new Color4(.08f, .28f, .4f, 1));
+                        Text((i == menu ? "▶ " : "   ") + options[i], UiWidth / 2 - 140, 305 + i * 75, 340);
+                    }
+                }
             }
-
-            else if (state == State.GameOver)
-            {
-                resources.Draw("게임오버ui", 50, -5, 860, 675);
-                Box(327, 313, 115, 52, new Color4(.04f, .15f, .25f, 1));
-                Box(530, 313, 115, 52, new Color4(.04f, .15f, .25f, 1));
-                Text(world.Score.Total(world.Players, settings).ToString(), 335, 322, 110);
-                Text(record.ToString(), 540, 322, 110);
-                Text("▶", 285, 389 + Math.Min(menu, 2) * 76, 60);
-                if (menu == 3) Text("▶ 종료", 420, 657, 180);
-                else Text("종료", 440, 657, 180);
-            }
-
-            else
-            {
-                Box(140, 130, 680, 440, new Color4(.01f, .02f, .08f, .94f));
-                Text("기록 상세", 380, 165);
-                Text($"합계 {world.Score.Total(world.Players, settings)} · 최고 기록 {record}", 230, 225);
-                Text($"최고 높이: 래피 {world.Players[0].Highest / 10:F1}m / 블피 {world.Players[1].Highest / 10:F1}m", 190, 285);
-                Text($"공격 {world.Score.Damage * 5:F0}점 / 배경 보너스 {world.Score.Bonus}점", 230, 345);
-                Text("돌아가기 (클릭 / Enter / ESC)", 310, 460);
-            }
-
         }
-
-
+        RenderTarget.Transform = originalTransform;
     }
 
     public override void Dispose()
