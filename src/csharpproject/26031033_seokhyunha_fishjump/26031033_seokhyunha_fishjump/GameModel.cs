@@ -3,7 +3,7 @@
 using System.Text.Json;
 
 
-record struct Control(Vector2 Direction, bool Press, bool Release, bool Held);
+record struct Control(Vector2 Direction, bool Press, bool Release, bool Held, int JumpBias = 0, bool ParryPress = false);
 
 sealed class FishPlayer(int id, float x)
 {
@@ -13,11 +13,13 @@ sealed class FishPlayer(int id, float x)
 
     public float Gauge = 100, Highest, Charge, Parry, SwimTime, SwimDelay, Cast, Effect;
 
-    public bool Alive = true, Charging, Jumping, FacingRight = true, CaptureDirection;
+    public bool Alive = true, Charging, Jumping, FacingRight = true;
 
     public int Platform = 0, LaunchPlatform = -1;
     public bool FallingOnly;
-    public float Splash;
+    public float Splash, JumpBiasAmount;
+    public Vector2 SwimDirection;
+    public bool UsesBasicSwimPose => Platform >= 0 && SwimDirection.Y != 0;
 
 }
 
@@ -45,6 +47,11 @@ sealed class WaterPlatform(int id, float x, float y, float w, int color)
         }
         return enter <= leave ? Math.Clamp(enter, 0, 1) : 1;
     }
+
+    // Only residents receive exit tolerance; airborne arrivals still use the visible water.
+    public bool ContainsResident(Vector2 p, GameSettings settings) =>
+        p.X >= X - settings.WaterExitSideMargin && p.X <= X + Width + settings.WaterExitSideMargin &&
+        p.Y >= Y - Height / 2 - settings.WaterExitBottomMargin && p.Y <= Y + Height / 2 + settings.WaterExitTopMargin;
 
     public bool Contains(Vector2 p) => p.X >= X && p.X <= X + Width && p.Y >= Y - Height / 2 && p.Y <= Y + Height / 2;
 
@@ -115,7 +122,7 @@ sealed class GameWorld
         Seed = s.Seed ?? System.Random.Shared.Next();
         Random = new(Seed);
         attackRandom = new(Seed ^ 1729);
-        Platforms.Add(new(nextId++, 0, 0, 960, 0));
+        Platforms.Add(new(nextId++, 0, 0, 960, 0) { Height = 180 });
         Generate();
     }
 
@@ -140,11 +147,11 @@ sealed class GameWorld
                 1 => Random.Next(250, 361),
                 _ => Random.Next(430, 571)
             };
-            float height = size switch
+            float height = Random.Next(3) switch
             {
-                0 => Random.Next(55, 76),
-                1 => Random.Next(70, 91),
-                _ => Random.Next(85, 106)
+                0 => Random.Next(80, 111),
+                1 => Random.Next(140, 181),
+                _ => Random.Next(210, 261)
             };
             // Keep at least 60px of shared horizontal space for a vertical jump route.
             float minX = Math.Max(20, last.X + 60 - width);
@@ -158,7 +165,10 @@ sealed class GameWorld
                 _ => choice
             };
             float x = minX + (maxX - minX) * fraction;
-            float y = last.Y + Random.Next(110, 151);
+            // Leave a visible gap above the tallest water in the previous band.
+            float previousTop = Platforms.Where(p => p.Id >= last.Id).Max(p => p.Y + p.Height / 2);
+            int minGap = Math.Max(110, (int)Math.Ceiling(previousTop - last.Y + Math.Max(height / 2, 115) + 12));
+            float y = last.Y + Random.Next(minGap, minGap + 25);
             int color = layoutPattern switch
             {
                 0 or 1 => (patternColor + patternStep / 2) % 2,
@@ -191,7 +201,7 @@ sealed class GameWorld
             float sideY = y + Random.Next(-5, 6);
             Platforms.Add(new(nextId++, x, sideY, width, (color + i) % 2)
             {
-                Height = Random.Next(55, 76), IsRoute = false
+                Height = Math.Min(Platforms.Last(p => p.IsRoute).Height, Random.Next(3) switch { 0 => Random.Next(80, 111), 1 => Random.Next(130, 171), _ => Random.Next(190, 221) }), IsRoute = false
             });
             // Extra routes should not multiply the original item supply.
             if (Random.NextDouble() < Settings.ItemChance * .25f)
@@ -206,8 +216,10 @@ sealed class GameWorld
         if (consume && f.Gauge < 1) { f.Charging=false; f.Charge=0; return; }
         float distance = points * Settings.JumpMetersPerPoint * Settings.PixelsPerMeter;
         float speed = MathF.Sqrt(2 * Settings.Gravity * distance);
+        f.Direction = Vector2.Normalize(new Vector2(f.Direction.X, Math.Max(.8660254f, f.Direction.Y)));
         f.Velocity = f.Direction * speed;
-        f.LaunchPlatform = Platforms.FirstOrDefault(p => p.Contains(f.Position))?.Id ?? -1;
+        f.LaunchPlatform = Platforms.FirstOrDefault(p => p.Id == f.Platform && p.ContainsResident(f.Position, Settings))?.Id
+            ?? Platforms.FirstOrDefault(p => p.Contains(f.Position))?.Id ?? -1;
         f.Jumping = true;
         f.Charging = false;
         f.Charge = 0;
@@ -255,21 +267,23 @@ sealed class GameWorld
             f.Parry = Math.Max(0, f.Parry - dt);
             f.SwimDelay = Math.Max(0, f.SwimDelay - dt);
 
-            var water = !f.Jumping && !f.FallingOnly ? Platforms.FirstOrDefault(p => p.Id == f.Platform && p.Contains(f.Position)) : null;
+            var water = !f.Jumping && !f.FallingOnly ? Platforms.FirstOrDefault(p => p.Id == f.Platform && p.ContainsResident(f.Position, Settings)) : null;
 
-            if (f.CaptureDirection)
-            {
-                f.Direction = c.Direction == Vector2.Zero ? Vector2.UnitY : c.Direction;
-                f.CaptureDirection = false;
-            }
-
+            if (c.Press || c.ParryPress) f.Parry = Settings.ParryWindow;
             if (c.Press)
             {
-                f.Parry = Settings.ParryWindow;
                 f.Charging = water != null;
                 f.Charge = 0;
-                f.CaptureDirection = true;
+                f.Direction = Vector2.UnitY;
+                f.JumpBiasAmount = 0;
                 if (f.Charging) Sound?.Invoke("jumpholding");
+            }
+            // Signed held duration selects the launch angle; opposite input unwinds it.
+            if (f.Charging && c.Held)
+            {
+                f.JumpBiasAmount = Math.Clamp(f.JumpBiasAmount + c.JumpBias * dt / Math.Max(.01f, Settings.JumpBiasFullSeconds), -1, 1);
+                float angle = f.JumpBiasAmount * Settings.JumpBiasMaxDegrees * MathF.PI / 180;
+                f.Direction = new Vector2(MathF.Sin(angle), MathF.Cos(angle));
             }
 
             if (f.Charging && c.Held) f.Charge = Math.Min(f.Gauge, Math.Min(100, f.Charge + Settings.ChargeRate * dt));
@@ -280,6 +294,7 @@ sealed class GameWorld
 
             bool swim = water != null && !f.Jumping && c.Direction != Vector2.Zero && f.SwimDelay <= 0;
 
+            f.SwimDirection = swim ? c.Direction : Vector2.Zero;
             if (swim)
             {
                 if (f.SwimTime == 0) Sound?.Invoke("swim");
@@ -298,26 +313,43 @@ sealed class GameWorld
                 }
                 f.Velocity.Y -= (Settings.Gravity - (water != null && !f.Jumping && f.Gauge > 0 ? Settings.Buoyancy : 0)) * dt;
                 if (water != null && !f.Jumping) f.Velocity.X *= MathF.Exp(-4 * dt);
-                else f.Velocity.X += c.Direction.X * 120 * dt;
+                else if (f.Jumping && !f.FallingOnly)
+                {
+                    f.Velocity.X = Math.Clamp(f.Velocity.X + c.Direction.X * Settings.AirSteeringAcceleration * dt,
+                        -Settings.AirSteeringMaxSpeed, Settings.AirSteeringMaxSpeed);
+                }
             }
 
             var previousPosition = f.Position;
             f.Position += f.Velocity * dt;
             f.Position.X = Math.Clamp(f.Position.X, 20, 940);
 
+            float jumpDistance = f.Jumping ? Vector2.Distance(previousPosition, f.Position) : 0;
             if(swim){float gain=Vector2.Distance(previousPosition,f.Position)/Settings.PixelsPerMeter*Settings.RecoveryPerMeter;f.Gauge=Math.Clamp(f.Gauge+(water!.Color==f.Id?gain:-Settings.WrongColorDrain*dt),0,100);}
-            if (water != null && water.Contains(f.Position)) f.Platform = water.Id;
+            if (water != null && water.ContainsResident(f.Position, Settings)) f.Platform = water.Id;
             else
             {
                 f.Platform = -1;
+                if (f.Charging)
+                {
+                    f.Charging = false;
+                    f.Charge = 0;
+                }
                 var entered = Platforms
                     .Where(p => water == null || p.Id != water.Id)
-                    .Where(p => !(f.Jumping && p.Id == f.LaunchPlatform && p.Contains(previousPosition) && f.Velocity.Y >= 0))
+                    .Where(p => !(f.Jumping && p.Id == f.LaunchPlatform && previousPosition.Y <= p.Y + p.Height / 2 && f.Velocity.Y >= 0))
                     .Where(p => p.Contains(f.Position) || p.EntryTime(previousPosition, f.Position) < 1)
                     .OrderBy(p => p.EntryTime(previousPosition, f.Position)).FirstOrDefault();
                 if (entered != null)
-                    contacts.Add((f, entered, entered.EntryTime(previousPosition, f.Position)));
+                {
+                    float entryTime = entered.EntryTime(previousPosition, f.Position);
+                    jumpDistance *= entryTime;
+                    contacts.Add((f, entered, entryTime));
+                }
             }
+
+            // Charge only the actual flight segment, not boundary clipping or contact correction.
+            f.Gauge = Math.Max(0, f.Gauge - jumpDistance / Settings.PixelsPerMeter * Settings.JumpDrainPerMeter);
 
             foreach (var fire in Fires.Where(x => !x.Done))
             {
@@ -335,7 +367,7 @@ sealed class GameWorld
                         Score.Damage += 20;
                         Sound?.Invoke("parry");
                         f.Effect = .4f;
-                        if (c.Direction != Vector2.Zero) f.Direction = c.Direction;
+                        f.Direction = Vector2.UnitY;
                         Launch(f, f.Gauge * .4f, false);
                         Sound?.Invoke("splash");
                     }
@@ -355,6 +387,7 @@ sealed class GameWorld
 
             }
 
+            if (f.Charging) f.Charge = Math.Min(f.Charge, f.Gauge);
             if(c.Release&&f.Charging)Launch(f,Math.Max(1,f.Charge),true);
             foreach (var item in Items.Where(x => !x.Done && Vector2.Distance(x.Position, f.Position) < 35))
             {

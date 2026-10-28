@@ -32,7 +32,9 @@ class GameMain : G2AppBase
     int menu, record;
     string recordPath = "";
 
-    Random inputRandom = new();
+    Keys[] parryKeys = [];
+    bool[] pendingParry = new bool[2];
+    int[] jumpBias = new int[2];
 
     Keys[][] keys = [];
     bool[] pendingPress = new bool[2], pendingRelease = new bool[2];
@@ -55,6 +57,7 @@ class GameMain : G2AppBase
         font = new("Malgun Gothic", 21);
         audio = new(settings);
         keys = [settings.Player1Keys.Select(Enum.Parse<Keys>).ToArray(), settings.Player2Keys.Select(Enum.Parse<Keys>).ToArray()];
+        parryKeys = settings.ParryKeys.Select(Enum.Parse<Keys>).ToArray();
         recordPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JumpingFish", "record.txt");
         if (File.Exists(recordPath)) int.TryParse(File.ReadAllText(recordPath), out record);
         Reset();
@@ -67,7 +70,8 @@ class GameMain : G2AppBase
         audio.Pause(false);
         audio.Music("early");
         world = new(settings);
-        inputRandom = new(world.Seed ^ 17);
+        Array.Clear(pendingParry);
+        Array.Clear(jumpBias);
         world.Sound = audio.Play;
         ready = 1.5f;
         accumulator = 0;
@@ -81,10 +85,10 @@ class GameMain : G2AppBase
 
     Vector2 ReadDirection(int i)
     {
-        var choices = new List<Vector2>();
-        Vector2[] vectors = [Vector2.UnitY, -Vector2.UnitY, -Vector2.UnitX, Vector2.UnitX];
-        for (int j = 0; j < 4; j++) if (Held(keys[i][j])) choices.Add(vectors[j]);
-        return choices.Count == 0 ? Vector2.Zero : choices[inputRandom.Next(choices.Count)];
+        float x = (Held(keys[i][3]) ? 1 : 0) - (Held(keys[i][2]) ? 1 : 0);
+        float y = (Held(keys[i][0]) ? 1 : 0) - (Held(keys[i][1]) ? 1 : 0);
+        var direction = new Vector2(x, y);
+        return direction.LengthSquared() > 1 ? Vector2.Normalize(direction) : direction;
     }
 
     bool MouseInside(float x, float y, float width, float height)
@@ -237,14 +241,17 @@ class GameMain : G2AppBase
             pendingPress[i] |= Input.IsKeyDown(keys[i][4]);
             pendingRelease[i] |= Input.IsKeyUp(keys[i][4]);
             directions[i] = ReadDirection(i);
+            pendingParry[i] |= Input.IsKeyDown(parryKeys[i]);
+            jumpBias[i] = Held(keys[i][0]) ? (Held(keys[i][3]) ? 1 : 0) - (Held(keys[i][2]) ? 1 : 0) : 0;
         }
 
         accumulator += dt;
         while (accumulator >= 1f / 120)
         {
             Control[] c = new Control[2];
-            for (int i = 0; i < 2; i++) c[i] = new(directions[i], pendingPress[i], pendingRelease[i], Held(keys[i][4]));
+            for (int i = 0; i < 2; i++) c[i] = new(directions[i], pendingPress[i], pendingRelease[i], Held(keys[i][4]), jumpBias[i], pendingParry[i]);
             world.Step(1f / 120, c);
+            Array.Clear(pendingParry);
             Array.Clear(pendingPress);
             Array.Clear(pendingRelease);
             accumulator -= 1f / 120;
@@ -292,6 +299,8 @@ class GameMain : G2AppBase
 
         if (f.Cast > 0) return n + "수둔시전" + jumpSide + "점프시";
 
+        if (f.UsesBasicSwimPose) return n;
+
         if (f.Charging) return n + jumpSide + "점프전동작";
 
         if (f.Platform < 0)
@@ -314,10 +323,12 @@ class GameMain : G2AppBase
         if (state == State.Title)
         {
             resources.Draw("게임시작화면", 0, 0, 960, 720);
-            Box(100, 500, 760, 160, new Color4(0, .04f, .12f, .85f));
-            Text("JUMPING FISH  ·  PRESS ANY BUTTON", 220, 520);
-            Text("래피: WASD + Space     블피: 방향키 + Enter", 180, 565);
-            Text("충전 후 떼기: 점프   ·   누르기: 패링   ·   ESC: 메뉴", 150, 605);
+            Box(70, 470, 820, 220, new Color4(0, .04f, .12f, .85f));
+            Text("JUMPING FISH  ·  PRESS ANY BUTTON", 220, 485);
+            Text("래피: WASD 헤엄 / Space 충전·떼면 점프", 140, 530);
+            Text("블피: 방향키 헤엄 / ] 충전·떼면 점프", 140, 565);
+            Text("충전 중 W+A/D 또는 ↑+←/→: 누른 시간만큼 편향", 120, 605);
+            Text("점프 중 좌우 조절 · Space/Enter 패링 · ESC 메뉴", 240, 645);
             return;
         }
 
@@ -356,7 +367,7 @@ class GameMain : G2AppBase
         Text($"점수 {world.Score.Total(world.Players, settings)}   최고 {record}   구간 {world.Stage + 1}", 15, 8);
         Text($"래피 {world.Players[0].Highest / 10:F1}m   블피 {world.Players[1].Highest / 10:F1}m   Seed {world.Seed}", 15, 35);
 
-        if (state == State.Ready) Text("준비! 위쪽으로 헤엄치며 점프를 충전하세요", 220, 300);
+        if (state == State.Ready) Text("준비! Space / ]를 누르고 있다가 떼면 점프", 220, 300);
 
         if (state == State.Paused || state == State.GameOver || state == State.Results)
         {

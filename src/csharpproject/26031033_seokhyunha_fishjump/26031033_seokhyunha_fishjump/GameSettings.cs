@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 
 using System.Text.Json;
 
@@ -150,7 +150,7 @@ sealed class GameSettings
         get;
         set;
     }
- = ["Up", "Down", "Left", "Right", "Enter"];
+ = ["Up", "Down", "Left", "Right", "OemCloseBrackets"];
 
     public float[] StageHeights
     {
@@ -179,6 +179,17 @@ sealed class GameSettings
         set;
     }
  = .65f;
+
+    public float WaterExitSideMargin { get; set; } = 8;
+    public float WaterExitTopMargin { get; set; } = 6;
+    public float WaterExitBottomMargin { get; set; } = 12;
+
+    public float JumpDrainPerMeter { get; set; } = .1f;
+    public float AirSteeringAcceleration { get; set; } = 360f;
+    public float AirSteeringMaxSpeed { get; set; } = 220f;
+    public float JumpBiasFullSeconds { get; set; } = 1f;
+    public float JumpBiasMaxDegrees { get; set; } = 30f;
+    public string[] ParryKeys { get; set; } = ["Space", "Enter"];
 
     public static GameSettings Load()
     {

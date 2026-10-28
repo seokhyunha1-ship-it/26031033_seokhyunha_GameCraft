@@ -1,4 +1,4 @@
-{
+﻿{
   "PixelsPerMeter": 10,
   "ChargeRate": 50,
   "JumpMetersPerPoint": 0.5,
@@ -30,7 +30,7 @@
     "Down",
     "Left",
     "Right",
-    "Enter"
+    "OemCloseBrackets"
   ],
   "StageHeights": [
     0,
@@ -49,5 +49,17 @@
     500
   ],
   "BgmVolume": 0.2,
-  "SfxVolume": 0.65
+  "SfxVolume": 0.65,
+  "AirSteeringAcceleration": 360,
+  "AirSteeringMaxSpeed": 220,
+  "ParryKeys": [
+    "Space",
+    "Enter"
+  ],
+  "JumpDrainPerMeter": 0.1,
+  "WaterExitSideMargin": 8,
+  "WaterExitTopMargin": 6,
+  "WaterExitBottomMargin": 12,
+  "JumpBiasFullSeconds": 1,
+  "JumpBiasMaxDegrees": 30
 }
