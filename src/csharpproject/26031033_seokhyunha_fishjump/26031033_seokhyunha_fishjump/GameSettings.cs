@@ -202,8 +202,10 @@ sealed class GameSettings
     // 창의 실제 종횡비를 사용해 세로로 늘어난 영역에도 같은 배율의 세계를 표시한다.
     public float ViewHeight => WorldWidth * GameGlobal.ScreenSize.Height / GameGlobal.ScreenSize.Width;
     public float FlapDirectionWindow { get; set; } = .30f;
+    public float FlapCostRatio { get; set; } = .25f;
     public float FlapSpeedMultiplier { get; set; } = 2f;
-    public float FlapBurstDuration { get; set; } = .20f;
+    public float FlapDirectionLockSeconds { get; set; } = .18f;
+    public float FlapOverspeedDeceleration { get; set; } = 600f;
     public float FireWindup { get; set; } = .50f;
     public float FireHold { get; set; } = .30f;
     public float FireRecovery { get; set; } = .40f;
@@ -215,7 +217,7 @@ sealed class GameSettings
     public void Validate()
     {
         float[] positive = [WorldWidth, WorldMargin, PlatformHorizontalGap, PixelsPerMeter, ChargeRate, JumpMetersPerPoint,
-            FlapDirectionWindow, FlapSpeedMultiplier, FlapBurstDuration, ParryWindow, AttackCooldown, FireWindup, FireHold, FireRecovery,
+            FlapDirectionWindow, FlapCostRatio, FlapSpeedMultiplier, FlapDirectionLockSeconds, FlapOverspeedDeceleration, ParryWindow, AttackCooldown, FireWindup, FireHold, FireRecovery,
             MouthOpenSeconds, MouthOpenHoldSeconds, MouthCloseSeconds, MouthClosedHoldSeconds];
         if (positive.Any(v => !float.IsFinite(v) || v <= 0) || WorldWidth < 800 ||
             WorldWidth - 2 * WorldMargin < 600 || WorldMargin < 20 ||
@@ -224,9 +226,9 @@ sealed class GameSettings
             // 최소 물 높이 80을 포함한 다음 생성 묶음과 중심 높이 순서가 뒤섞이지 않게 한다.
             PlatformScatterY * 2 >= PlatformVerticalGapMin + 80 ||
             SidePlatformsPerSide < 0 || SidePlatformsPerSide > 10 ||
-            FlapSpeedMultiplier < 1 || FlapSpeedMultiplier > 4 || FlapBurstDuration > 1 ||
+            FlapCostRatio > 1 || FlapSpeedMultiplier < 1 || FlapSpeedMultiplier > 4 || FlapDirectionLockSeconds > 1 ||
             PlatformVerticalGapMax < PlatformVerticalGapMin || PlatformVerticalGapMax == int.MaxValue ||
-            AttackCooldown <= FireWindup + FireHold + FireRecovery || FlapDirectionWindow < ParryWindow)
+            AttackCooldown <= FireWindup + FireHold + FireRecovery)
             throw new InvalidDataException("맵 폭, 물리 상수 또는 팔딱/오리 시간 설정이 올바르지 않습니다.");
     }
 

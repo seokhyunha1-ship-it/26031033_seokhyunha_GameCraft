@@ -27,8 +27,9 @@ sealed class FishPlayer(int id, float x)
     public bool FlapUsed, FlapPending, JumpHeld;
     public double FlapStarted, FlapDeadline, FlapDirectionTime;
     public Vector2 FlapDirection;
-    public Vector2 FlapBoostVelocity;
-    public float FlapBoostRemaining;
+    public Vector2 FlapLockedVelocity;
+    public float FlapLockRemaining;
+    public double LastFlapActivatedAt = -1;
     public FlightOrigin FlightOrigin;
     public string FlapMessage = "";
     public float FlapMessageTime;
@@ -40,8 +41,8 @@ sealed class FishPlayer(int id, float x)
         FlapUsed = false;
         FlapPending = false;
         FlapDirection = Vector2.Zero;
-        FlapBoostVelocity = Vector2.Zero;
-        FlapBoostRemaining = 0;
+        FlapLockedVelocity = Vector2.Zero;
+        FlapLockRemaining = 0;
     }
     public bool UsesBasicSwimPose => Platform >= 0 && SwimDirection.Y != 0;
 
@@ -140,6 +141,7 @@ sealed partial class GameWorld
     public float DuckY = -220, Camera, AttackTimer;
     public float CameraTop => Camera + Settings.ViewHeight * .75f;
     public float CameraBottom => Camera - Settings.ViewHeight * .25f;
+    public float DeathY => Math.Max(DuckY + 15, CameraBottom);
     public DuckState DuckPhase { get; private set; }
     public int DuckMouthFrame { get; private set; } = 3;
     public int ShotsFired { get; private set; }
@@ -293,12 +295,26 @@ sealed partial class GameWorld
         Sound?.Invoke("jump");
     }
 
+    bool CheckDeath(FishPlayer fish)
+    {
+        if (!fish.Alive) return true;
+        if (fish.Position.Y > DeathY) return false;
+        fish.Alive = false;
+        fish.Charging = false;
+        fish.Charge = fish.Parry = 0;
+        fish.Jumping = false;
+        fish.Platform = -1;
+        fish.EndFlight();
+        return true;
+    }
+
     public void Step(float dt, Control[] controls)
     {
 
         if (dt <= 0) return;
         double stepStart = Time;
         Time += dt;
+        DuckY = Math.Max(DuckY, CameraBottom - 15);
         UpdateDuck(stepStart);
 
         var contacts = new List<(FishPlayer fish, WaterPlatform platform, float time)>();
@@ -308,6 +324,7 @@ sealed partial class GameWorld
 
             var f = Players[i];
             if (!f.Alive) continue;
+            if (CheckDeath(f)) continue;
             var c = controls[i];
             // 키를 누른 채 유지하거나 자동 반복해도 새 팔딱 입력으로 소비하지 않는다.
             bool press = c.Press && !f.JumpHeld;
@@ -321,10 +338,20 @@ sealed partial class GameWorld
 
             var water = !f.Jumping && !f.FallingOnly ? Platforms.FirstOrDefault(p => p.Id == f.Platform && p.ContainsResident(f.Position, Settings)) : null;
 
-            if (press || c.ParryPress)
+            // 이미 물에 접촉한 상태의 입력으로 입수/거부를 취소하지 않는다.
+            bool touchingWater = water == null && Platforms.Any(p => p.Contains(f.Position) &&
+                !(f.Jumping && p.Id == f.LaunchPlatform && f.Velocity.Y >= 0));
+            if (touchingWater) f.FlapPending = false;
+            bool parryOnly = c.ParryPress && !c.Press;
+            if (parryOnly) f.FlapPending = false;
+            if (press || parryOnly)
                 f.Parry = Math.Max(0, Settings.ParryWindow - (float)(Time - (c.InputTime >= 0 ? c.InputTime : stepStart)));
-            if (press && water == null) BeginFlap(f, c, stepStart);
-            CaptureFlapDirection(f, c, stepStart);
+            if (!touchingWater && water == null)
+            {
+                if (press) BeginFlap(f, c, stepStart);
+                CaptureFlapDirection(f, c, stepStart);
+                ResolveFlap(f); // 이동 전에 즉시 방향을 확정한다. 패링 대기는 없다.
+            }
             if (press && water != null)
             {
                 f.Charging = water != null;
@@ -350,6 +377,8 @@ sealed partial class GameWorld
             bool swim = water != null && !f.Jumping && c.Direction != Vector2.Zero && f.SwimDelay <= 0;
 
             f.SwimDirection = swim ? c.Direction : Vector2.Zero;
+            Vector2 lockedMovement = Vector2.Zero;
+            float moveTime = dt;
             if (swim)
             {
                 if (f.SwimTime == 0) Sound?.Invoke("swim");
@@ -366,21 +395,28 @@ sealed partial class GameWorld
                     f.SwimDelay = .1f + Math.Min(.4f, f.SwimTime * .12f);
                     f.SwimTime = 0;
                 }
-                f.Velocity.Y -= (Settings.Gravity - (water != null && !f.Jumping && f.Gauge > 0 ? Settings.Buoyancy : 0)) * dt;
-                if (water != null && !f.Jumping) f.Velocity.X *= MathF.Exp(-4 * dt);
-                else if (f.Jumping && !f.FallingOnly)
+                if (f.FlapLockRemaining > 0)
                 {
-                    bool bursting = f.FlapBoostRemaining > 0;
-                    DecayFlapBoost(f, dt);
-                    // 짧은 추가 속도를 다음 틱의 공중 속도 제한으로 즉시 잘라내지 않는다.
-                    float limit = bursting ? Math.Max(Settings.AirSteeringMaxSpeed, Math.Abs(f.Velocity.X)) : Settings.AirSteeringMaxSpeed;
-                    f.Velocity.X = Math.Clamp(f.Velocity.X + c.Direction.X * Settings.AirSteeringAcceleration * dt, -limit, limit);
+                    float lockedTime = Math.Min(dt, f.FlapLockRemaining);
+                    f.Velocity = f.FlapLockedVelocity;
+                    lockedMovement = f.Velocity * lockedTime;
+                    f.FlapLockRemaining = Math.Max(0, f.FlapLockRemaining - lockedTime);
+                    moveTime = dt - lockedTime;
+                }
+                if (moveTime > 0)
+                {
+                    f.Velocity.Y -= (Settings.Gravity - (water != null && !f.Jumping && f.Gauge > 0 ? Settings.Buoyancy : 0)) * moveTime;
+                    if (water != null && !f.Jumping) f.Velocity.X *= MathF.Exp(-4 * moveTime);
+                    else if (f.Jumping && !f.FallingOnly) f.Velocity.X = SteerAfterFlap(f, c.Direction.X, moveTime);
                 }
             }
 
             var previousPosition = f.Position;
-            f.Position += f.Velocity * dt;
+            f.Position += lockedMovement + f.Velocity * moveTime;
+            float unclippedX = f.Position.X;
             f.Position.X = Math.Clamp(f.Position.X, Settings.WorldMargin, Settings.WorldWidth - Settings.WorldMargin);
+            if (f.Position.X != unclippedX)
+            { f.Velocity.X = 0; f.FlapLockedVelocity.X = 0; }
 
             float jumpDistance = f.Jumping ? Vector2.Distance(previousPosition, f.Position) : 0;
             if(swim){float gain=Vector2.Distance(previousPosition,f.Position)/Settings.PixelsPerMeter*Settings.RecoveryPerMeter;f.Gauge=Math.Clamp(f.Gauge+(water!.Color==f.Id?gain:-Settings.WrongColorDrain*dt),0,100);}
@@ -402,17 +438,22 @@ sealed partial class GameWorld
                 {
                     float entryTime = entered.EntryTime(previousPosition, f.Position);
                     jumpDistance *= entryTime;
+                    f.Position = Vector2.Lerp(previousPosition, f.Position, entryTime);
                     contacts.Add((f, entered, entryTime));
                 }
             }
 
             // Charge only the actual flight segment, not boundary clipping or contact correction.
             f.Gauge = Math.Max(0, f.Gauge - jumpDistance / Settings.PixelsPerMeter * Settings.JumpDrainPerMeter);
+            // 화면 밑의 물·아이템·패링으로 탈락한 물고기를 되살리지 않는다.
+            if (CheckDeath(f)) continue;
 
             foreach (var fire in Fires.Where(x => !x.Done))
             {
 
-                float d = Vector2.Distance(f.Position, fire.Position);
+                // 물고기와 불의 상대 이동 선분으로 검사해 빠른 직진 중에도 불을 통과하지 않는다.
+                float d = SegmentDistance(previousPosition - fire.Position,
+                    f.Position - (fire.Position + fire.Velocity * dt), Vector2.Zero);
 
                 if (f.Parry > 0 && fire.Special && d <= Settings.ParryRadius)
                 {
@@ -449,7 +490,7 @@ sealed partial class GameWorld
 
             if (f.Charging) f.Charge = Math.Min(f.Charge, f.Gauge);
             if(c.Release&&f.Charging)Launch(f,Math.Max(1,f.Charge),true);
-            foreach (var item in Items.Where(x => !x.Done && Vector2.Distance(x.Position, f.Position) < 35))
+            foreach (var item in Items.Where(x => !x.Done && SegmentDistance(previousPosition, f.Position, x.Position) < 35))
             {
                 item.Done = true;
                 if (item.Water)
@@ -473,12 +514,7 @@ sealed partial class GameWorld
 
             f.Highest = Math.Max(f.Highest, f.Position.Y);
 
-            if (f.Position.Y <= DuckY + 15)
-            {
-                f.Alive = false;
-                f.Charging = false;
-                f.EndFlight();
-            }
+            CheckDeath(f);
 
         }
 
@@ -507,6 +543,7 @@ sealed partial class GameWorld
                         fish.Platform = -1;
                         fish.Position.Y = p.Y - p.Height / 2 - 2;
                         fish.Velocity.Y = -Math.Max(120, Math.Abs(fish.Velocity.Y) * .5f);
+                        FlapNotice(fish, "물 진입 거부 · 반대 색 물로 이동");
                         Sound?.Invoke("reject");
                     }
                     else
@@ -526,11 +563,10 @@ sealed partial class GameWorld
             }
         }
 
-        // 입수/사망/패링이 확정된 뒤에만 팔딱을 실행하여 한 입력의 중복 결과를 막는다.
+        // 사망 확정 뒤 후보와 직진 상태를 남기지 않는다.
         foreach (var fish in Players)
         {
-            if (fish.Position.Y <= DuckY + 15) { fish.Alive = false; fish.EndFlight(); }
-            ResolveFlap(fish);
+            CheckDeath(fish);
         }
         foreach (var f in Fires) f.Position += f.Velocity * dt;
 
@@ -546,6 +582,10 @@ sealed partial class GameWorld
 
         Camera = Math.Max(Camera, Math.Max(DuckY + Settings.ViewHeight * (2f / 9f),
             Players.Where(f => f.Alive).Select(f => f.Position.Y - Settings.ViewHeight * (5f / 12f)).DefaultIfEmpty(Camera).Max()));
+        // 새 화면의 바닥까지 오리가 따라온다. 자체 상승 속도와 공격 중 정지는 그대로 적용한다.
+        // 카메라를 다시 계산하지 않아 오리 보정과 스크롤 사이의 무한 상승을 막는다.
+        DuckY = Math.Max(DuckY, CameraBottom - 15);
+        foreach (var fish in Players) CheckDeath(fish);
 
         float highest = Players.Max(f => f.Highest);
         Stage = Array.FindLastIndex(Settings.StageHeights, h => highest >= h);

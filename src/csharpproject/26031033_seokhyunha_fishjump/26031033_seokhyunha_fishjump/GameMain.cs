@@ -18,6 +18,7 @@ class GameMain : G2AppBase
     ResourceManager resources = null!;
     BackgroundManager background = new();
     G2Font font = null!;
+    G2Font hintFont = null!;
     AudioManager audio = null!;
 
     bool assetCheck = Environment.GetCommandLineArgs().Contains("--asset-check");
@@ -61,6 +62,7 @@ class GameMain : G2AppBase
             File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "asset-check-results.txt"), lines);
         }
         font = new("Malgun Gothic", 21);
+        hintFont = new("Malgun Gothic", 16);
         audio = new(settings);
         keys = [settings.Player1Keys.Select(Enum.Parse<Keys>).ToArray(), settings.Player2Keys.Select(Enum.Parse<Keys>).ToArray()];
         parryKeys = settings.ParryKeys.Select(Enum.Parse<Keys>).ToArray();
@@ -349,6 +351,48 @@ class GameMain : G2AppBase
 
     }
 
+    void DrawJumpGauge(FishPlayer fish, float x, float y)
+    {
+        const float width = 72, height = 8;
+        float left = Math.Clamp(x - width / 2, 4, ScreenSize.Width - width - 4), top = y - 30;
+        Box(left - 1, top - 1, width + 2, height + 2, new(0, 0, 0, .9f));
+        Box(left, top, width * fish.Gauge / 100, height,
+            fish.Id == 0 ? new(1, .3f, .4f, 1) : new(.2f, .7f, 1, 1));
+        if (fish.Charging) Box(left, top + 12, width * fish.Charge / 100, 3, new(1, 1, .3f, 1));
+        if (!world.ShowFlapCost(fish)) return;
+
+        float threshold = world.FlapGaugeThreshold(fish);
+        bool enough = fish.Gauge >= threshold;
+        Color4 color = enough ? new(1, 1, .35f, 1) : new(1, .4f, .25f, 1);
+        float marker = left + width * Math.Clamp(threshold / 100, 0, 1);
+        float reserve = left + width * (fish.Charging ? fish.Charge : 0) / 100;
+        Box(reserve, top + height - 2, Math.Max(0, marker - reserve), 2, color);
+        Box(marker - 2, top - 3, 4, height + 6, new(0, 0, 0, 1));
+        Box(marker - 1, top - 3, 2, height + 6, color);
+        string label = $"팔딱 {world.FlapCost(fish):0.#}" + (enough ? "" : " 부족");
+        float labelX = Math.Clamp(left, 4, ScreenSize.Width - 130);
+        hintFont.DrawText(label, new Rect(labelX + 1, top - 22, 130, 22), new(0, 0, 0, .9f));
+        hintFont.DrawText(label, new Rect(labelX, top - 23, 130, 22), color);
+    }
+
+    void DrawFishHint(FishPlayer fish, float x, float y)
+    {
+        string text = $"P{fish.Id + 1} · {world.FlapHint(fish)}";
+        // 함께 출발할 때 두 안내가 겹치지 않도록 좌우로 나누고 높이도 조금 다르게 둔다.
+        float left = Math.Clamp(fish.Id == 0 ? x - 322 : x + 12, 8, ScreenSize.Width - 330);
+        float top = Math.Clamp(y + 22 + fish.Id * 24, 34, ScreenSize.Height - 48);
+        hintFont.DrawText(text, new Rect(left + 1, top + 1, 322, 44), new Color4(0, 0, 0, .9f));
+        hintFont.DrawText(text, new Rect(left, top, 322, 44), new Color4(1, 1, 1, 1));
+        if (fish.FlapLockRemaining <= 0) return;
+        Vector2 direction = new(fish.FlapDirection.X, -fish.FlapDirection.Y);
+        Vector2 start = new(x, y), tip = start + direction * 42;
+        Vector2 side = new(-direction.Y, direction.X);
+        using var brush = RenderTarget.CreateSolidColorBrush(new Color4(1, 1, .3f, 1));
+        RenderTarget.DrawLine(start + direction * 20, tip, brush, 2);
+        RenderTarget.DrawLine(tip, tip - direction * 8 + side * 4, brush, 2);
+        RenderTarget.DrawLine(tip, tip - direction * 8 - side * 4, brush, 2);
+    }
+
     protected override void Render()
     {
         background.Draw(resources);
@@ -373,19 +417,20 @@ class GameMain : G2AppBase
             foreach (var fish in world.Players.Where(f => f.Alive))
             {
                 float x = fish.Position.X * WorldScale, y = Y(fish.Position.Y);
+                if (y < -40 || y > ScreenSize.Height + 30) continue;
                 if (fish.Splash > 0) DrawWorld((fish.Id == 0 ? "빨간물" : "파란물") + (world.Stage + 1) + "첨벙이펙트",
                     fish.Position.X - 65, fish.Position.Y + 45, 130, 90, fish.Splash / .35f);
                 DrawWorld(FishImage(fish), fish.Position.X - 40, fish.Position.Y + 30, 80, 60);
-                Box(x - 25, y - 26, 50, 6, new Color4(0, 0, 0, .9f));
-                Box(x - 25, y - 26, 50 * fish.Gauge / 100, 6,
-                    fish.Id == 0 ? new(1, .3f, .4f, 1) : new(.2f, .7f, 1, 1));
-                if (fish.Charging) Box(x - 25, y - 18, 50 * fish.Charge / 100, 3, new(1, 1, .3f, 1));
+                DrawJumpGauge(fish, x, y);
                 if (fish.Effect > 0) DrawWorld((fish.Id == 0 ? "rappy_parry_" : "blpy_red_parry_") +
                     Math.Clamp(1 + (int)((.4f - fish.Effect) / .08f), 1, 5).ToString("00"),
                     fish.Position.X - 60, fish.Position.Y + 60, 120, 120);
+                DrawFishHint(fish, x, y);
             }
-            DrawWorld("오리입" + world.DuckMouthFrame, 0, world.DuckY + 5, settings.WorldWidth, 500, stretch: true);
-            float danger = Y(world.DuckY + 15);
+            // 입 전체를 하단의 얕은 띠에 보여 주어 개폐 프레임이 화면 밖으로 사라지지 않는다.
+            // 입의 아래쪽이 실제 탈락선이며, 열린 모양이어도 판정선은 움직이지 않는다.
+            DrawWorld("오리입" + world.DuckMouthFrame, 0, world.DeathY + 140, settings.WorldWidth, 140, stretch: true);
+            float danger = Math.Clamp(Y(world.DeathY), 0, ScreenSize.Height - 2);
             if (danger >= 0 && danger <= ScreenSize.Height)
                 Box(0, danger, ScreenSize.Width, 2, new Color4(1, .25f, .1f, .6f));
         }
@@ -399,8 +444,8 @@ class GameMain : G2AppBase
             Box(100, 440, UiWidth - 200, 240, new Color4(0, .04f, .12f, .9f));
             Text("JUMPING FISH · PRESS ANY BUTTON", 380, 455);
             Text("래피: WASD / Space 충전·떼면 점프    블피: 방향키 / ] 충전·떼면 점프", 160, 500, 1050);
-            Text("공중에서 점프키 한 번 더 + 방향: 팔딱 (일반 점프 비용의 절반, 1회)", 160, 540, 1050);
-            Text("방향 입력 0.30초 · 패링 0.20초 우선 · Space/Enter 패링 · ESC 메뉴", 160, 580, 1050);
+            Text($"공중 점프키 + 방향: 팔딱 (점프 비용의 {settings.FlapCostRatio:P0}, 1회) · 게이지 노란 선: 필요량", 160, 540, 1050);
+            Text("방향+점프키: 즉시 팔딱 · 방향 없으면 0.30초 유예 · Space/Enter 패링 · ESC 메뉴", 160, 580, 1050);
             Text("충전 중 위+좌우로 편향 · 비행 중 좌우 조절 · 넓은 물길을 함께 탐색하세요", 160, 620, 1050);
         }
         else
@@ -443,6 +488,7 @@ class GameMain : G2AppBase
         audio?.Dispose();
         resources?.Dispose();
         font?.Dispose();
+        hintFont?.Dispose();
         base.Dispose();
     }
 

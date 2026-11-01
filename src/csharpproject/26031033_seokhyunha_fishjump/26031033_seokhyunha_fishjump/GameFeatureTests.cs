@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 
 static class GameFeatureTests
 {
@@ -34,6 +34,7 @@ static class GameFeatureTests
 
     public static void Run(Action<string, Action> Test)
     {
+        GameDirectionTests.Run(Test);
         Test("tuning: stronger gravity shortens normal jump time but preserves paid height", () =>
         {
             (float height, double time) Apex(float gravity)
@@ -51,7 +52,7 @@ static class GameFeatureTests
             Check(after.time < before.time * .95 && after.time > before.time * .9);
             Check(Math.Abs(after.height - before.height) < 2 && Math.Abs(after.height - 400) < 3);
         });
-        Test("flap burst: reverses momentum, survives the next steering tick, then ends", () =>
+        Test("flap lock: reverses momentum, stays straight, then decelerates", () =>
         {
             foreach (int id in new[] { 0, 1 }) foreach (int sign in new[] { -1, 1 })
             {
@@ -64,14 +65,14 @@ static class GameFeatureTests
                 Control[] held = [new(),new()]; held[id] = new(new(sign,0),false,false,true);
                 w.Step(1f / 120, held);
                 Check(f.Velocity.X * sign > 500 && (f.Position.X - startX) * sign > 4);
-                Check(f.Velocity.Y < 0, "gravity must remain active during burst");
-                Advance(w, w.Time + w.Settings.FlapBurstDuration + .02);
-                Check(f.FlapBoostRemaining == 0 && f.FlapBoostVelocity == Vector2.Zero);
-                Check(Math.Abs(f.Velocity.X) <= w.Settings.AirSteeringMaxSpeed + .001);
-                Check(Near(f.Gauge, 40), "burst must not charge another activation fee");
+                Check(Near(f.Velocity.Y, 0), "direction lock must remain horizontal");
+                Advance(w, w.Time + w.Settings.FlapDirectionLockSeconds + .02);
+                Check(f.FlapLockRemaining == 0);
+                Check(Math.Abs(f.Velocity.X) > w.Settings.AirSteeringMaxSpeed, "overspeed should decay gradually");
+                Check(Near(f.Gauge, 50), "burst must not charge another activation fee");
             }
         });
-        Test("flap burst: vertical bonus decays without cancelling gravity; fast entry clears burst", () =>
+        Test("flap lock: gravity resumes after lock; fast entry clears lock", () =>
         {
             foreach (int id in new[] { 0, 1 })
             {
@@ -80,9 +81,9 @@ static class GameFeatureTests
                 while (!f.FlapUsed && w.Time < .25) w.Step(1f / 120,Idle);
                 float initial = f.Velocity.Y;
                 double start = w.Time;
-                Advance(w, start + w.Settings.FlapBurstDuration + .01);
-                float expected = initial / w.Settings.FlapSpeedMultiplier - w.Settings.Gravity * (float)(w.Time-start);
-                Check(Near(f.Velocity.Y,expected,.01) && f.FlapBoostRemaining==0);
+                Advance(w, start + w.Settings.FlapDirectionLockSeconds + .01);
+                float expected = initial - w.Settings.Gravity * (float)(w.Time - w.Settings.FlapDirectionLockSeconds);
+                Check(Near(f.Velocity.Y,expected,.01) && f.FlapLockRemaining==0);
 
                 w = Flight(id); f = w.Players[id];
                 Press(w,id,Vector2.UnitX);
@@ -90,18 +91,18 @@ static class GameFeatureTests
                 f.Position = new(1000,500);
                 w.Platforms.Add(new(1000,1010,500,10,1-id){Height=100,IsRoute=false});
                 w.Step(.1f,Idle); // 한 틱에 얇은 물을 지나칠 속도에서도 입수해야 한다.
-                Check(f.Platform==1000 && f.FlapBoostRemaining==0 && f.FlapBoostVelocity==Vector2.Zero);
+                Check(f.Platform==1000 && f.FlapLockRemaining==0 && f.FlapLockedVelocity==Vector2.Zero);
             }
         });
-        Test("flap burst: invalid settings rejected and old settings receive defaults", () =>
+        Test("flap lock: invalid settings rejected and old settings receive defaults", () =>
         {
             var old = System.Text.Json.JsonSerializer.Deserialize<GameSettings>("{}")!;
-            Check(old.FlapSpeedMultiplier==2 && old.FlapBurstDuration==.2f && old.Gravity==300);
+            Check(old.FlapSpeedMultiplier==2 && old.FlapDirectionLockSeconds==.18f && old.Gravity==300);
             foreach(float value in new[]{float.NaN,float.PositiveInfinity,0f,-1f})
             foreach(bool multiplier in new[]{true,false})
             {
                 var s = new GameSettings();
-                if(multiplier)s.FlapSpeedMultiplier=value; else s.FlapBurstDuration=value;
+                if(multiplier)s.FlapSpeedMultiplier=value; else s.FlapDirectionLockSeconds=value;
                 bool rejected=false; try{s.Validate();}catch(InvalidDataException){rejected=true;}
                 Check(rejected);
             }
@@ -254,21 +255,21 @@ static class GameFeatureTests
                 }
             }
         });
-        Test("M03: culling preserves a living resident's water", () =>
+        Test("M03: scrolled-out residents die and their old water can be culled", () =>
         {
             var w = new GameWorld(new() { Seed = 1, DuckSpeed = 0 });
             w.DuckY = -10000;
             w.Camera = 5000;
             w.Step(1f / 120, Idle);
-            Check(w.Platforms.Any(p => p.Id == w.Players[0].Platform));
+            Check(w.Players.All(f => !f.Alive) && w.Platforms.All(p => p.Id != 0));
         });
-        Test("F01/F02: paid cost half, exact balance, shortage and fractional cost", () =>
+        Test("F01/F02: paid cost quarter, exact balance, shortage and fractional cost", () =>
         {
             foreach (int id in new[] { 0, 1 }) foreach (float cost in new[] { 1f, 40f, 80f })
             foreach (bool enough in new[] { false, true })
             {
                 var w = Flight(id, cost); var f = w.Players[id];
-                f.Gauge = cost / 2 - (enough ? 0 : .01f);
+                f.Gauge = cost / 4 - (enough ? 0 : .01f);
                 float before = f.Gauge;
                 Press(w, id, Vector2.UnitY);
                 Advance(w, .22);
@@ -313,7 +314,7 @@ static class GameFeatureTests
             Check(!f.FlapPending && !f.FlapUsed && f.Gauge == 60);
             w.Step(1f/120, Idle); f.Gauge = 1; Press(w, 0, Vector2.UnitX);
             Advance(w, w.Time + .22); Check(!f.FlapUsed && f.Gauge == 1);
-            f.Gauge = 20; Press(w, 0, Vector2.UnitX); Advance(w, w.Time + .22);
+            f.Gauge = 10; Press(w, 0, Vector2.UnitX); Advance(w, w.Time + .22);
             Check(f.FlapUsed && f.Gauge == 0);
         });
         Test("F06: landing, death, falling-only and free parry reset flap eligibility", () =>
@@ -337,7 +338,7 @@ static class GameFeatureTests
             {
                 var w = Flight(id); var f = w.Players[id];
                 w.Fires.Add(new() { Position=f.Position, Color=kind==0?1-id:id, Special=kind!=2 });
-                Press(w,id,Vector2.UnitY); Advance(w,.25);
+                Press(w,id,Vector2.Zero); Advance(w,.25);
                 Check(!f.FlapUsed && !f.FlapPending);
                 Check(f.Gauge == (kind==0?60:40) && w.Score.Damage == (kind==0?20:0));
             }
@@ -371,7 +372,7 @@ static class GameFeatureTests
         });
         Test("D05/D06: stationary duck still receives damage and other objects move", () =>
         {
-            var w=Flight(); w.Settings.AttackCooldown=4; Advance(w,3.6);
+            var w=Flight(); w.Settings.Gravity=0; w.Players[0].Velocity=Vector2.Zero; w.Settings.AttackCooldown=4; Advance(w,3.6);
             w.Settings.DuckSpeed=13;
             var f=w.Players[0]; float x=f.Position.X, duck=w.DuckY;
             f.Velocity=new(100,0);
@@ -416,7 +417,7 @@ static class GameFeatureTests
         Test("F10: flap movement drains only actual distance, clips wall and lands without correction cost", () =>
         {
             var w=Flight(); var f=w.Players[0]; Press(w,0,Vector2.UnitX);
-            Advance(w,.5); Check(f.FlapUsed && f.FlapBoostRemaining == 0);
+            Advance(w,.5); Check(f.FlapUsed && f.FlapLockRemaining == 0);
             w.Settings.Gravity=0; w.Settings.JumpDrainPerMeter=.1f;
             f.Position=new(w.Settings.WorldWidth-w.Settings.WorldMargin, 0); f.Velocity=new(200,0);
             float before=f.Gauge; w.Step(.1f,Idle); Check(f.Gauge==before);
@@ -430,7 +431,7 @@ static class GameFeatureTests
             old.Validate(); Check(old.WorldWidth==2068 && old.FlapDirectionWindow==.3f);
             foreach(int mode in new[]{0,1,2})
             {
-                var s=new GameSettings(); if(mode==0)s.WorldWidth=0; if(mode==1)s.AttackCooldown=1; if(mode==2)s.FlapDirectionWindow=.1f;
+                var s=new GameSettings(); if(mode==0)s.WorldWidth=0; if(mode==1)s.AttackCooldown=1; if(mode==2)s.FlapDirectionWindow=-.1f;
                 bool rejected=false; try{s.Validate();}catch(InvalidDataException){rejected=true;} Check(rejected);
             }
         });
