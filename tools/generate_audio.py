@@ -1,9 +1,13 @@
 """Original procedural audio. Python standard library only; no borrowed samples."""
 from pathlib import Path
-import wave,math,array,random
+import wave,math,array,random,argparse
+parser=argparse.ArgumentParser()
+parser.add_argument("--only", nargs="*", help="Generate only these sound stems")
+only=parser.parse_args().only
 out=Path(__file__).resolve().parents[1]/"resource/resource/sounds"
 sr=22050
 def save(name,buf):
+ if only is not None and name not in only:return
  pcm=array.array('h',(int(max(-.95,min(.95,v))*32767) for v in buf))
  with wave.open(str(out/(name+'.wav')),'wb') as w:
   w.setnchannels(1);w.setsampwidth(2);w.setframerate(sr);w.writeframes(pcm.tobytes())
@@ -39,3 +43,33 @@ for i in range(int(sr*.28)):
  env=math.sin(math.pi*local/.10)**2 if active else 0
  buf.append(.45*env*math.sin(2*math.pi*1050*t))
 save('sfx_reject',buf)
+
+# A clear metallic success chime, with an immediate strike and a short rising tail.
+duration=.36
+rng=random.Random(90)
+buf=[]
+for i in range(int(sr*duration)):
+ t=i/sr
+ attack=min(1,t/.002)
+ tail=min(1,(duration-t)/.03)
+ strike=.40*math.sin(2*math.pi*1320*t)*math.exp(-t*17)
+ bright=.20*math.sin(2*math.pi*1980*t)*math.exp(-t*20)
+ local=max(0,t-.045)
+ chime=.24*math.sin(2*math.pi*1760*local)*math.exp(-local*13) if t>=.045 else 0
+ click=.10*rng.uniform(-1,1)*math.exp(-t*140)
+ buf.append(attack*tail*(strike+bright+chime+click))
+save('sfx_parry',buf)
+
+# A dry jaw-clack above a short low thump; no borrowed audio samples.
+duration=.22
+rng=random.Random(91)
+buf=[]
+for i in range(int(sr*duration)):
+ t=i/sr
+ attack=min(1,t/.0015)
+ tail=min(1,(duration-t)/.025)
+ thump=.48*math.sin(2*math.pi*(105*t-150*t*t))*math.exp(-t*22)
+ clack=.25*rng.uniform(-1,1)*math.exp(-t*100)
+ wood=.18*math.sin(2*math.pi*720*t)*math.exp(-t*65)
+ buf.append(attack*tail*(thump+clack+wood))
+save('sfx_bite',buf)

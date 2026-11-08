@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+using System.Numerics;
 
 using System.Text.Json;
 
@@ -25,7 +25,7 @@ sealed class GameSettings
         get;
         set;
     }
- = .8f;
+ = 0.7f;
 
     public float Gravity
     {
@@ -39,21 +39,21 @@ sealed class GameSettings
         get;
         set;
     }
- = 210;
+ = 300;
 
     public float SwimSpeed
     {
         get;
         set;
     }
- = 95;
+ = 135;
 
     public float RecoveryPerMeter
     {
         get;
         set;
     }
- = 6;
+ = 3;
 
     public float WrongColorDrain
     {
@@ -67,21 +67,21 @@ sealed class GameSettings
         get;
         set;
     }
- = 13;
+ = 165;
 
     public float AttackCooldown
     {
         get;
         set;
     }
- = 4;
+ = 5;
 
     public float FireSpeed
     {
         get;
         set;
     }
- = 180;
+ = 360;
 
     public float ParryWindow
     {
@@ -123,7 +123,7 @@ sealed class GameSettings
         get;
         set;
     }
- = 30;
+ = 24;
 
     public float WaterDamageScale
     {
@@ -185,7 +185,7 @@ sealed class GameSettings
     public float WaterExitBottomMargin { get; set; } = 12;
 
     public float JumpDrainPerMeter { get; set; } = .1f;
-    public float AirSteeringAcceleration { get; set; } = 360f;
+    public float AirSteeringAcceleration { get; set; } = 420;
     public float AirSteeringMaxSpeed { get; set; } = 220f;
     public float JumpBiasFullSeconds { get; set; } = 1f;
     public float JumpBiasMaxDegrees { get; set; } = 30f;
@@ -203,23 +203,43 @@ sealed class GameSettings
     public float ViewHeight => WorldWidth * GameGlobal.ScreenSize.Height / GameGlobal.ScreenSize.Width;
     public float FlapDirectionWindow { get; set; } = .30f;
     public float FlapCostRatio { get; set; } = .25f;
-    public float FlapSpeedMultiplier { get; set; } = 2f;
+    public float FlapSpeedMultiplier { get; set; } = 1.6f;
     public float FlapDirectionLockSeconds { get; set; } = .18f;
     public float FlapOverspeedDeceleration { get; set; } = 600f;
-    public float FireWindup { get; set; } = .50f;
-    public float FireHold { get; set; } = .30f;
-    public float FireRecovery { get; set; } = .40f;
+    public float ItemDrawSize { get; set; } = 80;
+    public float DuckStunSeconds { get; set; } = 1.2f;
+    public float WaterMinDamage { get; set; } = 10;
+    public float FireHitStunSeconds { get; set; } = .3f;
+    public float FireDrawSize { get; set; } = 112;
+    public float FireWindup { get; set; } = 0.2f;
+    public float FireHold { get; set; } = 0.15f;
+    public float FireRecovery { get; set; } = 0.15f;
     public float MouthOpenSeconds { get; set; } = .35f;
     public float MouthOpenHoldSeconds { get; set; } = .20f;
     public float MouthCloseSeconds { get; set; } = .35f;
     public float MouthClosedHoldSeconds { get; set; } = .20f;
 
+    public float MaxJumpCharge { get; set; } = 75;
+    public float DuckSpeedPerStage { get; set; } = 3;
+    public float DuckDrawWidthRatio { get; set; } = 1.9f;
+    public float DuckVisibleHeight { get; set; } = 400;
+    public float DuckDrawHeight => WorldWidth * DuckDrawWidthRatio * 3910f / 3461f;
+    public float FlapMaxSpeed { get; set; } = 480;
+    public float FlapVerticalCarrySpeed { get; set; } = 165;
+    public float FlapVerticalDeceleration { get; set; } = 900;
+    public float AirReleaseDrag { get; set; } = 2;
+
     public void Validate()
     {
-        float[] positive = [WorldWidth, WorldMargin, PlatformHorizontalGap, PixelsPerMeter, ChargeRate, JumpMetersPerPoint,
+        float[] positive = [FireHitStunSeconds, ItemDrawSize, DuckStunSeconds, WaterMinDamage, FireDrawSize, MaxJumpCharge, DuckDrawWidthRatio, DuckVisibleHeight, DuckDrawHeight, FlapMaxSpeed, FlapVerticalCarrySpeed, FlapVerticalDeceleration, WorldWidth, WorldMargin, PlatformHorizontalGap, PixelsPerMeter, ChargeRate, JumpMetersPerPoint,
             FlapDirectionWindow, FlapCostRatio, FlapSpeedMultiplier, FlapDirectionLockSeconds, FlapOverspeedDeceleration, ParryWindow, AttackCooldown, FireWindup, FireHold, FireRecovery,
             MouthOpenSeconds, MouthOpenHoldSeconds, MouthCloseSeconds, MouthClosedHoldSeconds];
-        if (positive.Any(v => !float.IsFinite(v) || v <= 0) || WorldWidth < 800 ||
+        if (MaxJumpCharge > 100 || !float.IsFinite(DuckSpeed) || DuckSpeed < 0 ||
+            !float.IsFinite(DuckSpeedPerStage) || DuckSpeedPerStage < 0 || DuckSpeedPerStage > 10 ||
+            !float.IsFinite(AirReleaseDrag) || AirReleaseDrag < 0 ||
+            !float.IsFinite(ItemChance) || ItemChance < 0 || ItemChance > 1 ||
+            !float.IsFinite(WaterItemChance) || WaterItemChance < 0 || WaterItemChance > 1 ||
+            positive.Any(v => !float.IsFinite(v) || v <= 0) || WorldWidth < 800 ||
             WorldWidth - 2 * WorldMargin < 600 || WorldMargin < 20 ||
             !float.IsFinite(Gravity) || Gravity < 0 || PlatformVerticalGapMin < 1 ||
             !float.IsFinite(PlatformScatterY) || PlatformScatterY < 0 || PlatformScatterY > PlatformVerticalGapMin - 12 ||

@@ -36,6 +36,9 @@ static class GameSelfTests
         {
             var w = new GameWorld(new()
             {
+                // 기존 단위 검사의 고정 물리 조건. 새 기본 밸런스는 별도 협력 시뮬레이션에서 검사한다.
+                SwimSpeed = 95, RecoveryPerMeter = 6, JumpMetersPerPoint = .8f,
+                MaxJumpCharge = 100, AirReleaseDrag = 0, AirSteeringAcceleration = 360, FireSpeed = 180,
                 Seed = 42,
                 WorldWidth = 960,
                 WorldMargin = 20,
@@ -85,7 +88,7 @@ static class GameSelfTests
 
         Test("100 point vertical jump reaches 80m", () =>
         {
-            var w = World(); var f = w.Players[0]; w.Platforms.Clear(); w.Platforms.Add(new(100, 0, 10000, 960, 0)); w.Launch(f, 100, true); for (int i = 0; i < 360; i++) w.Step(1f / 120, Idle); Check(Math.Abs(f.Highest - 800) < 3, $"height={f.Highest}");
+            var w = World(); w.Settings.WorldWidth=2068; var f = w.Players[0]; w.Platforms.Clear(); w.Platforms.Add(new(100, 0, 10000, 2068, 0)); w.Launch(f, 100, true); for (int i = 0; i < 360; i++) w.Step(1f / 120, Idle); Check(Math.Abs(f.Highest - 800) < 3, $"height={f.Highest}");
         }
 );
 
@@ -388,7 +391,7 @@ static class GameSelfTests
         });
         Test("air steering works beyond two seconds and during descent", () =>
         {
-            var w=World(); var f=w.Players[0];
+            var w=World(); w.Settings.WorldWidth=2068; var f=w.Players[0];
             w.Platforms.Clear(); w.Platforms.Add(new(100,0,10000,960,0));
             f.Direction=Vector2.UnitY; w.Launch(f,100,true);
             for(int i=0;i<60;i++) w.Step(1f/120,[new(Vector2.UnitX,false,false,false),new()]);

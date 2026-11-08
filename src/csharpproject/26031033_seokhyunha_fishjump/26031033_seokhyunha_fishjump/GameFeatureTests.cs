@@ -50,7 +50,7 @@ static class GameFeatureTests
             }
             var before = Apex(260); var after = Apex(new GameSettings().Gravity);
             Check(after.time < before.time * .95 && after.time > before.time * .9);
-            Check(Math.Abs(after.height - before.height) < 2 && Math.Abs(after.height - 400) < 3);
+            Check(Math.Abs(after.height - before.height) < 2 && Math.Abs(after.height - 350) < 3);
         });
         Test("flap lock: reverses momentum, stays straight, then decelerates", () =>
         {
@@ -60,11 +60,11 @@ static class GameFeatureTests
                 f.Velocity = new(-sign * 200, -100);
                 Press(w, id, new(sign, 0));
                 while (!f.FlapUsed && w.Time < .25) w.Step(1f / 120, Idle);
-                Check(f.Velocity.X * sign > 600 && Near(f.Velocity.Y, 0));
+                Check(f.Velocity.X * sign > 450 && Near(f.Velocity.Y, 0));
                 float startX = f.Position.X;
                 Control[] held = [new(),new()]; held[id] = new(new(sign,0),false,false,true);
                 w.Step(1f / 120, held);
-                Check(f.Velocity.X * sign > 500 && (f.Position.X - startX) * sign > 4);
+                Check(f.Velocity.X * sign > 400 && (f.Position.X - startX) * sign > 3);
                 Check(Near(f.Velocity.Y, 0), "direction lock must remain horizontal");
                 Advance(w, w.Time + w.Settings.FlapDirectionLockSeconds + .02);
                 Check(f.FlapLockRemaining == 0);
@@ -82,7 +82,7 @@ static class GameFeatureTests
                 float initial = f.Velocity.Y;
                 double start = w.Time;
                 Advance(w, start + w.Settings.FlapDirectionLockSeconds + .01);
-                float expected = initial - w.Settings.Gravity * (float)(w.Time - w.Settings.FlapDirectionLockSeconds);
+                float expected = initial - (w.Settings.Gravity + w.Settings.FlapVerticalDeceleration) * (float)(w.Time - w.Settings.FlapDirectionLockSeconds);
                 Check(Near(f.Velocity.Y,expected,.01) && f.FlapLockRemaining==0);
 
                 w = Flight(id); f = w.Players[id];
@@ -97,7 +97,7 @@ static class GameFeatureTests
         Test("flap lock: invalid settings rejected and old settings receive defaults", () =>
         {
             var old = System.Text.Json.JsonSerializer.Deserialize<GameSettings>("{}")!;
-            Check(old.FlapSpeedMultiplier==2 && old.FlapDirectionLockSeconds==.18f && old.Gravity==300);
+            Check(old.FlapSpeedMultiplier==1.6f && old.FlapDirectionLockSeconds==.18f && old.Gravity==300);
             foreach(float value in new[]{float.NaN,float.PositiveInfinity,0f,-1f})
             foreach(bool multiplier in new[]{true,false})
             {
@@ -247,7 +247,7 @@ static class GameFeatureTests
                     foreach(var other in w.Players)other.Alive=other.Id==id;
                     var f=w.Players[id];
                     f.Position=new((Math.Max(from.X,to.X)+Math.Min(from.X+from.Width,to.X+to.Width))/2,from.Y);
-                    f.Platform=source.Id;
+                    f.Platform=source.Id; w.Camera=from.Y;
                     w.Launch(f,50,true);
                     for(int tick=0;tick<240 && f.Platform!=destination.Id;tick++)w.Step(1f/120,Idle);
                     Check(f.Platform==destination.Id, $"seed={seed} band={n} player={id}");
@@ -265,7 +265,7 @@ static class GameFeatureTests
         });
         Test("F01/F02: paid cost quarter, exact balance, shortage and fractional cost", () =>
         {
-            foreach (int id in new[] { 0, 1 }) foreach (float cost in new[] { 1f, 40f, 80f })
+            foreach (int id in new[] { 0, 1 }) foreach (float cost in new[] { 1f, 40f, 75f })
             foreach (bool enough in new[] { false, true })
             {
                 var w = Flight(id, cost); var f = w.Players[id];
@@ -298,7 +298,7 @@ static class GameFeatureTests
                 var w = Flight(id); var f = w.Players[id]; f.Velocity.Y = vy;
                 Press(w, id, dir);
                 while (!f.FlapUsed && w.Time < .25) w.Step(1f / 120, Idle);
-                float speed = MathF.Sqrt(2 * w.Settings.Gravity * 20 * 8) * w.Settings.FlapSpeedMultiplier;
+                float speed = Math.Min(w.Settings.FlapMaxSpeed, MathF.Sqrt(w.Settings.Gravity * 40 * w.Settings.JumpMetersPerPoint * w.Settings.PixelsPerMeter) * w.Settings.FlapSpeedMultiplier);
                 Check(f.FlapUsed && Near(f.Velocity.Length(), speed));
                 Check(Vector2.Distance(Vector2.Normalize(f.Velocity), Vector2.Normalize(dir)) < .00001);
                 float gauge = f.Gauge;
@@ -358,7 +358,7 @@ static class GameFeatureTests
         });
         Test("D01/D02/D04: first volley at 4, second at 8, fixed 7 and exact stop interval", () =>
         {
-            var w=Flight(); w.Settings.AttackCooldown=4; w.Settings.DuckSpeed=13;
+            var w=Flight(); w.Settings.AttackCooldown=4; w.Settings.FireWindup=.5f; w.Settings.FireHold=.3f; w.Settings.FireRecovery=.4f; w.Settings.DuckSpeed=13;
             w.DuckY=-220; w.Settings.Gravity=0; w.Players[0].Position.Y=0;
             w.Players[0].Velocity=Vector2.Zero; w.Players[0].Jumping=false;
             Advance(w,3.5); float stoppedY=w.DuckY;
@@ -372,7 +372,7 @@ static class GameFeatureTests
         });
         Test("D05/D06: stationary duck still receives damage and other objects move", () =>
         {
-            var w=Flight(); w.Settings.Gravity=0; w.Players[0].Velocity=Vector2.Zero; w.Settings.AttackCooldown=4; Advance(w,3.6);
+            var w=Flight(); w.Settings.Gravity=0; w.Players[0].Velocity=Vector2.Zero; w.Settings.AttackCooldown=4; w.Settings.FireWindup=.5f; w.Settings.FireHold=.3f; w.Settings.FireRecovery=.4f; Advance(w,3.6);
             w.Settings.DuckSpeed=13;
             var f=w.Players[0]; float x=f.Position.X, duck=w.DuckY;
             f.Velocity=new(100,0);
@@ -431,7 +431,7 @@ static class GameFeatureTests
             old.Validate(); Check(old.WorldWidth==2068 && old.FlapDirectionWindow==.3f);
             foreach(int mode in new[]{0,1,2})
             {
-                var s=new GameSettings(); if(mode==0)s.WorldWidth=0; if(mode==1)s.AttackCooldown=1; if(mode==2)s.FlapDirectionWindow=-.1f;
+                var s=new GameSettings(); if(mode==0)s.WorldWidth=0; if(mode==1)s.AttackCooldown=.3f; if(mode==2)s.FlapDirectionWindow=-.1f;
                 bool rejected=false; try{s.Validate();}catch(InvalidDataException){rejected=true;} Check(rejected);
             }
         });
